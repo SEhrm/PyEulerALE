@@ -1,0 +1,19 @@
+Mesh file:                examples/meshes/129x129.x
+Mach number:              0.5
+Angle of attack (deg):    1.25
+Heave speed / |vₒₒ|:      0.0
+Chord / L:                1.00893
+Rusanov flux factor:      0.02
+
+    it        residual    rel residual       coef lift
+     0       3.949e+02       1.000e+00      -6.288e-16
+     1       4.199e+01       1.063e-01      +1.556e-01
+     2       7.335e+00       1.858e-02      +1.323e-01
+     3       1.351e+00       3.422e-03      +1.689e-01
+     4       2.050e-01       5.192e-04      +1.756e-01
+     5       2.691e-03       6.814e-06      +1.751e-01
+     6       3.272e-07       8.287e-10      +1.751e-01
+     7       1.045e-12       2.645e-15      +1.751e-01
+Elapsed time: 32.51 sec
+
+Saved surface pressure coefficients to 'cp.csv' ('/mnt/c/Users/PCUser/Desktop/EulerALE/examples/steady/cp.csv')

@@ -40,3 +40,8 @@ jobs:
       - name: Run unittests
         run: |
           python -m unittest discover tests/
+      - name: Run 'Steady' regression tests
+        run: |
+          python examples/steady/run.py examples/meshes/129x129.x 0.5 1.25 0 1.008930 > run.out
+          diff <(head -n -3 run.out) <(head -n -3 examples/steady/expected/run.out)
+          diff examples/steady/cp.csv examples/steady/expected/cp.csv
