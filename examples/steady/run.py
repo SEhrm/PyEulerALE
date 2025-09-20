@@ -14,7 +14,7 @@ angle-of-attack and `ḣ / ‖𝐯₀₀‖` is the (downward) plunge speed of t
 free-stream speed.
 
 Example:
-    python run.py ../meshes/65x65.x 0.5 1.25 0.0 1.0
+    python run.py ../meshes/65x65.x 1.008930 0.5 0.25 0.0174
 
 Copyright (C) 2025 Simon Ehrmanntraut - All Rights Reserved
 """
@@ -31,10 +31,10 @@ parser = ArgumentParser(
     description="Solves the compressible Euler equations around an airfoil for steady-state "
                 "condition at constant far-field angle-of-attack and plunge speed.")
 parser.add_argument("mesh_file", type=str, help="Mesh file.")
+parser.add_argument("chord", type=float, help="Chord length (in grid units).")
 parser.add_argument("mach_number", type=float, help="Free-stream Mach number.")
 parser.add_argument("angle_of_attack", type=float, help="Far-field angle-of-attack (in deg).")
 parser.add_argument("plunge_speed", type=float, help="Plunge speed (in free-stream speed).")
-parser.add_argument("chord", type=float, help="Chord length (in grid units).")
 parser.add_argument(
     "--rusanov", type=float, default=2e-2,
     help="Rusanov/Lax-Friedrich flux factor, typically between 0 and 1. (default: %(default)s)")
@@ -47,10 +47,10 @@ parser.add_argument(
 args = parser.parse_args()
 
 print(f"{'Mesh file:':<25} {args.mesh_file}")
+print(f"{'Chord / L:':<25} {args.chord}")
 print(f"{'Mach number:':<25} {args.mach_number}")
 print(f"{'Angle of attack (deg):':<25} {args.angle_of_attack}")
 print(f"{'Plunge speed / |vₒₒ|:':<25} {args.plunge_speed}")
-print(f"{'Chord / L:':<25} {args.chord}")
 print(f"{'Rusanov flux factor:':<25} {args.rusanov}")
 
 # Non-dimensional free-stream speed `v₀₀/√(p₀₀/ϱ₀₀) = Ma₀₀⋅√γ`
@@ -94,7 +94,7 @@ for nt in range(args.iter):
     solver.compute_total_force()
 
     # Compute the classical lift coefficient from the non-dimensional total force
-    _, lift_coef = solver.total_force / (args.mach_number**2 * HEAT_RATIO / 2 * args.chord)
+    _, lift_coef = solver.total_force / (free_stream_speed**2 / 2 * args.chord)
 
     # Print the current iterate
     print(f"{nt:>6} {norm:>15.3e} {rel_norm:>15.3e} {lift_coef:>+15.3e}")
@@ -126,7 +126,7 @@ solver.compute_surface_pressure_coefficients()
 # Export ``solver.pressure_coefficients`` and ``solver.surface_points`` for postprocessing
 path = Path(__file__).parent / Path("cp.csv")
 np.savetxt(
-    fname=path, fmt="%.5e", delimiter=",", header="x,y,cp",
+    fname=path, fmt="%+.5e", delimiter=",", comments="", header="x,y,cp",
     X=np.vstack((solver.surface_points / args.chord, solver.surface_pressure_coefficients)).T,
 )
-print(f"\nSaved surface pressure coefficients to 'cp.csv' ('{path}')")
+print(f"\nSaved surface pressure coefficients to '{path.name}' ('{path}')")

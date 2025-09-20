@@ -1,4 +1,4 @@
-set terminal png giant size 600,500 fontscale 2 background rgb 'black'
+set terminal png giant size 700,500 fontscale 2 background rgb 'black'
 set xlabel tc "white"
 set ylabel tc "white"
 set title tc "white"
@@ -11,9 +11,9 @@ set datafile separator ","
 set yrange reverse
 set xrange [0 : 1]
 set grid
-set title "NACA-0012 at Mach number 0.5 and angle-of-attack 1.25 deg"
+set title "NACA-0012 at Mach number 0.5 and effective angle-of-attack 1.25 deg"
 set xlabel "x / chord"
 set ylabel "surface pressure coefficient"
-plot 'cp_xfoil.csv' u 1:3 with linespoints pointtype 2 lc "web-blue" title "XFOIL", \
-    'cp.csv' u 1:3 with points pointtype 7 lc "red" title "PyEulerALE", \
+plot 'cp_xfoil.csv' u 1:3 with linespoints pt 2 lc "web-blue" title "XFOIL", \
+    'cp.csv' u 1:3 with points pt 13 lc "red" title "PyEulerALE", \
 
