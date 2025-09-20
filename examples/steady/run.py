@@ -10,7 +10,7 @@ residual norm.
 The script prints the coefficient of lift, and saves the pressure coefficients on the surface of
 the airfoil to ``cp.csv``. By linear airfoil theory, the resulting the steady-state coefficient of
 lift should be `cₗ = 2π / √(1−Ma₀₀²) ⋅ (α/1ʳ + ḣ / ‖𝐯₀₀‖)` where `α` is the far-field
-angle-of-attack and `ḣ / ‖𝐯₀₀‖` is the (downward) heave speed of the airfoil as fraction of the
+angle-of-attack and `ḣ / ‖𝐯₀₀‖` is the (downward) plunge speed of the airfoil as fraction of the
 free-stream speed.
 
 Example:
@@ -29,11 +29,11 @@ from py_euler_ale import HEAT_RATIO, SpatialDiscretization
 
 parser = ArgumentParser(
     description="Solves the compressible Euler equations around an airfoil for steady-state "
-                "condition at constant far-field angle-of-attack and heave speed.")
+                "condition at constant far-field angle-of-attack and plunge speed.")
 parser.add_argument("mesh_file", type=str, help="Mesh file.")
 parser.add_argument("mach_number", type=float, help="Free-stream Mach number.")
 parser.add_argument("angle_of_attack", type=float, help="Far-field angle-of-attack (in deg).")
-parser.add_argument("heave_speed", type=float, help="Heave speed (in free-stream speed).")
+parser.add_argument("plunge_speed", type=float, help="Plunge speed (in free-stream speed).")
 parser.add_argument("chord", type=float, help="Chord length (in grid units).")
 parser.add_argument(
     "--rusanov", type=float, default=2e-2,
@@ -49,7 +49,7 @@ args = parser.parse_args()
 print(f"{'Mesh file:':<25} {args.mesh_file}")
 print(f"{'Mach number:':<25} {args.mach_number}")
 print(f"{'Angle of attack (deg):':<25} {args.angle_of_attack}")
-print(f"{'Heave speed / |vₒₒ|:':<25} {args.heave_speed}")
+print(f"{'Plunge speed / |vₒₒ|:':<25} {args.plunge_speed}")
 print(f"{'Chord / L:':<25} {args.chord}")
 print(f"{'Rusanov flux factor:':<25} {args.rusanov}")
 
@@ -65,8 +65,8 @@ solver = SpatialDiscretization(
 )
 
 # Set the non-dimensional grid velocities ``solver.velocities`` in the z-direction based on the
-# heave speed, i.e. `v = -ḣ/√(p₀₀/ϱ₀₀) = -(ḣ/v₀₀)⋅v₀₀/√(p₀₀/ϱ₀₀) = -(ḣ/v₀₀)⋅(Ma₀₀⋅√γ)`
-solver.velocities[1, :] = -args.heave_speed * free_stream_speed
+# plunge speed, i.e. `v = -ḣ/√(p₀₀/ϱ₀₀) = -(ḣ/v₀₀)⋅v₀₀/√(p₀₀/ϱ₀₀) = -(ḣ/v₀₀)⋅(Ma₀₀⋅√γ)`
+solver.velocities[1, :] = -args.plunge_speed * free_stream_speed
 
 # Compute ``solver.odes`` based on ``solver.states`` which is initialized by free-stream
 solver.compute_odes()

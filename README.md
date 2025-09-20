@@ -126,7 +126,7 @@ python run.py ../meshes/129x129.x 0.5 1.25 0.0 1.008930
 ```
 
 computes the steady-state flow around the NACA-0012 airfoil at constant far-field angle-of-attack
-$\alpha_\infty$ and (downward) heave speed $\dot{h}$.
+$\alpha_\infty$ and (downward) plunge speed $\dot{h}$.
 By linear airfoil theory, the (upward) section coefficient of lift should converge to
 
 $$c_\text{l} = \dfrac{2\pi}{\sqrt{1 - Ma_\infty^2}} \cdot \left(

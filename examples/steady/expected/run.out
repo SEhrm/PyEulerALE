@@ -1,7 +1,7 @@
 Mesh file:                examples/meshes/129x129.x
 Mach number:              0.5
 Angle of attack (deg):    1.25
-Heave speed / |vₒₒ|:      0.0
+Plunge speed / |vₒₒ|:     0.0
 Chord / L:                1.00893
 Rusanov flux factor:      0.02
 
