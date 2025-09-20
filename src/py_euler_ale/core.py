@@ -65,7 +65,7 @@ class SpatialDiscretization:
                 shocks in the sonic regine.
             rusanov_factor: Rusanov/Lax-Friedrich flux factor, typically between 0 and 1. Higher
                 values increase stability and avoid oscillations in the solution but introduce but
-                decrease accuracy due to numerical dissipation.
+                numerical dissipation decreasing the accuracy
         """
         self._vertices = self._read_grid(grid_file)
         self._num_radial = self._vertices.shape[1] - 1

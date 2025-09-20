@@ -67,6 +67,56 @@ automatically be compiled and processed through `f2py`.
 pip install ./PyEulerAle
 ```
 
+## Usage
+
+The spatial discretization can be initialized by
+
+```python
+from py_euler_ale import SpatialDiscretization
+
+disc = SpatialDiscretization(
+  grid_file='path/to/grid.plot3d',
+  mach_numer=0.5,
+  angle_of_attack=1.25,
+  rusanov_factor=1e-1,
+)
+```
+
+* Only two-dimensional, structured, closed, O-type grids in can be processed ; the grid file needs
+  to be supplied in PLOT3D format with a single block.
+
+  <details> <summary>Example</summary>
+
+  For example, a grid with $m$ vertices defining the airfoil and $n$ layers would read
+
+  ```text
+  1
+  𝑚 𝑛
+  𝑥₁₁
+  𝑥₁₂
+  ⋮
+  𝑥₁ₙ
+  𝑥₂₁
+  𝑥₂₂
+  ⋮
+  𝑥ₘₙ
+  𝑧₁₁
+  𝑧₁₂
+  𝑧ₘₙ
+  ```
+
+  The first index going radially outward and the second index going angular around the airfoil; for
+  closure, the points need to satisfy $(x_{i1},y_{i1}) = (x_{in},y_{in}) \forall i=1,\ldots,m$.
+
+  </details>
+
+* The free-stream Mach number should be chosen below the critical Mach number for the airfoil. The
+  Scheme is unlikely to produce reliable results for shocks in the sonic regine.
+* The far-field angle of attack will be read in degrees.
+* The Rusanov/Lax-Friedrich should be chosen typically between 0 and 1. Higher values increase
+  stability and prevent oscillations in the solution but introduce numerical dissipation decreasing
+  the accuracy.
+
 ## Examples
 
 ### Steady-State NACA-0012
@@ -80,7 +130,7 @@ $\alpha_\infty$ and (downward) heave speed $\dot{h}$.
 By linear airfoil theory, the (upward) section coefficient of lift should converge to
 
 $$c_\text{l} = \dfrac{2\pi}{\sqrt{1 - Ma_\infty^2}} \cdot \left(
-\frac{\alpha_\infty}{1\,\text{rad}} + \frac{\dot{h}}{\Vert \vec{v}_\infty \Vert} \right)$$
+\frac{\alpha_\infty}{1\text{rad}} + \frac{\dot{h}}{\Vert \vec{v}_\infty \Vert} \right)$$
 
 The following pressure distribution gets written to `cp.csv`
 

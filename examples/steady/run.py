@@ -7,12 +7,6 @@ equation in pseudo-time by linearized backward-Euler. The global pseudo time-ste
 by switched evolution relaxation (SER) where the time-step size is inverse proportional to the
 residual norm.
 
-Only two-dimensional, structured, closed, O-type grids in can be processed; the grid file needs to
-be supplied in PLOT3D format with a single block. For example, a grid with `n` vertices defining the
-airfoil and `m` layers reads "1¶m n¶x₁₁¶x₁₂¶…¶x₁ₙ¶x₂₁¶…¶xₘₙ¶y₁₁¶y₁₂¶…¶y₁ₙ¶y₂₁¶…¶yₘₙ" with the
-first index going radially outward and the second index going angular around the airfoil; for
-closure, the points need to satisfy `(xᵢ₁,yᵢ₁) = (xᵢₙ,yᵢₙ) ∀i=1,…,m`.
-
 The script prints the coefficient of lift, and saves the pressure coefficients on the surface of
 the airfoil to ``cp.csv``. By linear airfoil theory, the resulting the steady-state coefficient of
 lift should be `cₗ = 2π / √(1−Ma₀₀²) ⋅ (α/1ʳ + ḣ / ‖𝐯₀₀‖)` where `α` is the far-field
