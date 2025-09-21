@@ -196,7 +196,11 @@ class SpatialDiscretization:
         return vertex_points
 
     @staticmethod
-    def _check_array(array: np.ndarray, shape: tuple, dtype: type = np.complex128) -> None:
+    def _check_array(
+        array: np.ndarray,
+        shape: tuple,
+        dtype: np.dtype = np.dtypes.Complex128DType()
+    ) -> None:
         """Checks if the array is suitable to be passed to FORTRAN
 
         To avoid copies when passing to FORTRAN, an array must have the correct shape, data type,
@@ -213,7 +217,7 @@ class SpatialDiscretization:
         if array.shape != shape:
             msg = f"Incorrect shape. Got {array.shape}, expected {shape}"
         elif array.dtype != dtype:
-            msg = f"Incorrect data type. Got {array.dtype}, expected {dtype}"
+            msg = f"Incorrect data type. Got {array.dtype.name}, expected {np.dtype(dtype).name}"
         elif not array.flags.f_contiguous:
             msg = "Array is not FORTRAN-contiguous"
         else:
@@ -425,7 +429,7 @@ class SpatialDiscretization:
         Returns:
             Vector-product.
         """
-        result_dtype = complex if (np.iscomplex(shift) or d_odes.dtype == complex) else float
+        result_dtype = np.promote_types(type(shift), d_odes.dtype)
         if d_states is None:
             d_states = np.empty_like(d_odes, result_dtype)
         else:

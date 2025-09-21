@@ -50,6 +50,7 @@ ignore = [
     "RUF003", # ambiguous-unicode-character-comment
     "D415", # missing-terminal-punctuation (in summary)
     "RET504", # unnecessary-assign
+    "B008", # function-call-in-default-argument
 ]
 preview = true
 

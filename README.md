@@ -74,7 +74,7 @@ The spatial discretization can be initialized by
 ```python
 from py_euler_ale import SpatialDiscretization
 
-disc = SpatialDiscretization(
+solver = SpatialDiscretization(
   grid_file='path/to/grid.plot3d',
   mach_numer=0.5,
   angle_of_attack=1.25,
@@ -129,13 +129,9 @@ computes the steady-state flow around the NACA-0012 airfoil, with its chord meas
 $1.008930$ grid units, at free-stream Mach number $Ma_\infty = 0.5$, constant far-field
 angle-of-attack $\alpha_\infty = 0.25\text{deg}$, and (downward) plunge speed
 $\dot{h} / \Vert \vec{v}_\infty \Vert = \sin(1\text{deg}) = 0.0174$.
-By linear airfoil theory, the (upward) section coefficient of lift should converge to
-
-$$c_\text{l} = \dfrac{2\pi}{\sqrt{1 - Ma_\infty^2}} \cdot \left(
-\frac{\alpha_\infty}{1\text{rad}} + \frac{\dot{h}}{\Vert \vec{v}_\infty \Vert} \right)$$
 
 The pressure distribution gets written to `cp.csv` and matches well with the result from
-XFOIL.
+[XFOIL](https://web.mit.edu/drela/Public/web/xfoil/).
 
 <p align="center">
   <img src=examples/steady/expected/cp.png>
