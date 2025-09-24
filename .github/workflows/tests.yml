@@ -8,7 +8,7 @@ on: [ push ]
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
@@ -23,6 +23,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install
         run: |
+          sudo apt install -yqqq gnuplot=5.4.2+dfsg2-2
           python -m pip install --upgrade pip
           python -m pip install ruff fortitude-lint
           if [ "${{ matrix.numpy-version }}" = "latest" ]; then
@@ -40,8 +41,10 @@ jobs:
       - name: Run unittests
         run: |
           python -m unittest discover tests/
-      - name: Run 'Steady' regression tests
+      - name: Run 'Response' regression test
         run: |
-          python examples/steady/run.py examples/meshes/129x129.x 1.008930 0.5 0.25 0.0174 > run.out
-          diff <(head -n -3 run.out) <(head -n -3 examples/steady/expected/run.out)
-          diff examples/steady/cp.csv examples/steady/expected/cp.csv
+          cd examples/response
+          python -u run.py ../grids/naca0004_129x385.plot3d 1.008930 0.5 0 | tee run.out
+          diff run.out Ma0p5.out
+          gnuplot bode.gnuplot
+          git diff --exit-code bode.png

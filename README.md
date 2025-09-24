@@ -22,9 +22,9 @@ O-type grids.
   You can implement implicit time-integration methods and transfer function, and sensitivity
   analysis.
 
-The `SpatialDiscretization` Python class stores the cell averaged states $\underline{\pmb{u}}$, the
-grid vertices $\underline{\vec{x}}$, the grid velocities $\underline{\vec{v}}$ and the total section
-force $\vec{f}$ and provides the operators for
+The `SpatialDiscretization` Python class stores the cell averaged states $`\underline{\pmb{u}}`$,
+the grid vertices $`\underline{\vec{x}}`$, the grid velocities $`\underline{\vec{v}}`$ and the
+airfoil section forces $`\underline{\vec{f}}`$ and provides the operators for
 
 * the nonlinear autonomous ordinary differential equation
 
@@ -32,8 +32,8 @@ $$
 \frac{\mathrm{d}\underline{\pmb{u}}}{\mathrm{d}t} =
 \underline{\pmb{r}}(\underline{\pmb{u}}, \underline{\vec{x}}, \underline{\vec{v}}),
 \quad
-\vec{f} =
-\vec{f}(\underline{\pmb{u}}, \underline{\vec{x}})\text{,}
+\underline{\vec{f}} =
+\underline{\vec{f}}(\underline{\pmb{u}}, \underline{\vec{x}})\text{,}
 $$
 
 * the continuous-time time-invariant linearized state-space representation
@@ -44,9 +44,10 @@ $$
 \frac{\partial\underline{\pmb{r}}}{\partial\underline{\vec{x}}}\cdot\delta\underline{\vec{x}} +
 \frac{\partial\underline{\pmb{r}}}{\partial\underline{\vec{v}}}\cdot\delta\underline{\vec{v}},
 \quad
-\delta\vec{f} =
-\frac{\partial\vec{f}}{\partial\underline{\pmb{u}}}\cdot\delta\underline{\pmb{u}} +
-\frac{\partial\vec{f}}{\partial\underline{\vec{x}}}\cdot\delta\underline{\vec{x}}\text{,}
+\underline{\vec{f}} =
+\frac{\partial\underline{\vec{f}}}{\partial\underline{\pmb{u}}}\cdot\delta\underline{\pmb{u}} +
+\frac{\partial\underline{\vec{f}}}{\partial\underline{\vec{x}}}\cdot\delta\underline{\vec{x}}
+\text{,}
 $$
 
 * and the resolvent
@@ -87,7 +88,7 @@ solver = SpatialDiscretization(
 
   <details> <summary>Example</summary>
 
-  For example, a grid with $m$ vertices defining the airfoil and $n$ layers would read
+  For example, a grid with $`m`$ vertices defining the airfoil and $`n`$ layers would read
 
   ```text
   1
@@ -106,7 +107,7 @@ solver = SpatialDiscretization(
   ```
 
   The first index going radially outward and the second index going angular around the airfoil; for
-  closure, the points need to satisfy $(x_{i1},y_{i1}) = (x_{in},y_{in}) \forall i=1,\ldots,m$.
+  closure, the points need to satisfy $`(x_{i1},y_{i1}) = (x_{in},y_{in}) \forall i=1,\ldots,m`$.
 
   </details>
 
@@ -119,22 +120,73 @@ solver = SpatialDiscretization(
 
 ## Examples
 
-### Steady-State NACA-0012
+### NACA-0004 Frequency Response
+
+Consider an airfoil at zero far-field angle-of-attack undergoing small-amplitude oscillations in
+pitch angle around some grid coordinates $`\vec{x}_\text{a} := (x_\text{a}, 0)`$.
+To compute the frequency response, first the Euler equations are solved for the steady-state by
+iterating the nonlinear ordinary differential equation with pseudo-transient continuation (PTC).
+The global pseudo time-step size is controlled by switched evolution relaxation (SER) where the
+time-step size is inverse proportional to the residual norm (note the use of the resolvent):
+
+$$
+\underline{\pmb{u}}^{n+1} = \underline{\pmb{u}}^{n} - \bigg(
+\frac{\partial\underline{\pmb{r}}}{\partial\underline{\pmb{u}}} - \sigma^n\text{Id}
+\bigg)^{-1}
+\underline{\pmb{r}}(\underline{\pmb{u}}^n, \underline{\vec{x}}, \underline{\vec{0}})
+$$
+
+At the steady-state, the transfer functions from pitch angle $`\alpha`$ to coefficients of lift and
+moment at Laplace variable $`s`$ read
+
+$$
+\frac{\mathcal{L}(c_\text{l},c_\text{m})}{\mathcal{L}\alpha} :=
+\Bigg[
+\frac{\partial(c_\text{l},c_\text{m})}{\partial\underline{\vec{f}}}
+\Bigg(
+\frac{\partial\underline{\vec{f}}}{\partial\underline{\vec{x}}} -
+\frac{\partial\underline{\vec{f}}}{\partial\underline{\pmb{u}}}
+\bigg(
+\frac{\partial\underline{\pmb{r}}}{\partial\underline{\pmb{u}}} - s\text{Id}
+\bigg)^{-1}
+\bigg(
+\frac{\partial\underline{\pmb{r}}}{\partial\underline{\vec{x}}} +
+\frac{\partial\underline{\pmb{r}}}{\partial\underline{\vec{v}}} s
+\bigg)
+\Bigg) +
+\frac{\partial(c_\text{l},c_\text{m})}{\partial\underline{\vec{x}}}
+\Bigg]
+\frac{\partial\underline{\vec{x}}}{\partial\alpha}
+\text{.}
+$$
+
+The gain $`\partial\underline{\vec{x}}\textfractionsolidus\partial\alpha`$ follows from the rotation
+around
+$`\vec{x}_\text{a}`$ and the gains $`\partial(c_\text{l},c_\text{m})\textfractionsolidus
+\partial\underline{\vec{f}}`$ and $`\partial(c_\text{l},c_\text{m})\textfractionsolidus
+\partial\underline{\vec{x}}`$ follow from the definition of the (classical) coefficients of section
+lift and moment
+
+$$
+c_\text{l} := \dfrac{\oint f_z \mathrm{d}s}{\varrho_\infty u_\infty c\textfractionsolidus 2}, \quad
+c_\text{m} := \dfrac{\oint f_x z - f_z (x - x_\text{a}) \mathrm{d}s}{\varrho_\infty u_\infty c^2\textfractionsolidus 2}\text.
+$$
+
+Running
 
 ```commandline
-python run.py ../meshes/129x129.x 1.008930 0.5 0.25 0.0174
+python examples/response/run.py examples/grids/naca0004_129x385.plot3d 1.008930 0.5 0.0
 ```
 
-computes the steady-state flow around the NACA-0012 airfoil, with its chord measuring
-$1.008930$ grid units, at free-stream Mach number $Ma_\infty = 0.5$, constant far-field
-angle-of-attack $\alpha_\infty = 0.25\text{deg}$, and (downward) plunge speed
-$\dot{h} / \Vert \vec{v}_\infty \Vert = \sin(1\text{deg}) = 0.0174$.
-
-The pressure distribution gets written to `cp.csv` and matches well with the result from
-[XFOIL](https://web.mit.edu/drela/Public/web/xfoil/).
+computes the frequency responses of the NACA-0004, with its chord measuring $`1.008930`$ grid units,
+in free-stream Mach number $`Ma_\infty=0.5`$, pitching around the leading edge, at various values
+of reduced frequency $`(\omega c)\textfractionsolidus(2 u_\infty)`$. The results compare well to the
+results from Jordan ["_Aerodynamic flutter coefficients for subsonic, sonic and supersonic flow
+(linear two-dimensional theory)_"](https://reports.aerade.cranfield.ac.uk/handle/1826.2/3495) (Note
+the different definitions of frequency and lift/moment!)
 
 <p align="center">
-  <img src=examples/steady/expected/cp.png>
+  <img src=examples/response/bode.png>
 </p>
 
 ## Copyright

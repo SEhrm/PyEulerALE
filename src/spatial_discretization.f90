@@ -74,14 +74,13 @@ module spatial_discretization
   public apply_odes_wrt_vertices_fwd
   public apply_odes_wrt_vertices_rev
   public compute_odes_wrt_velocities
-  public compute_total_force
-  public compute_total_force_wrt_states
-  public apply_total_force_wrt_states_fwd
-  public apply_total_force_wrt_states_rev
-  public compute_total_force_wrt_vertices
-  public apply_total_force_wrt_vertices_fwd
-  public apply_total_force_wrt_vertices_rev
-  public compute_pressure_coeffs
+  public compute_forces
+  public compute_forces_wrt_states
+  public apply_forces_wrt_states_fwd
+  public apply_forces_wrt_states_rev
+  public compute_forces_wrt_vertices
+  public apply_forces_wrt_vertices_fwd
+  public apply_forces_wrt_vertices_rev
 
 contains
 
@@ -876,44 +875,42 @@ contains
     end do
   end subroutine compute_odes_wrt_velocities
 
-  !> @brief Computes total force
+  !> @brief Computes forces
   !!
-  !! The total section force is `𝐟 = ∮ p⋅d𝐬 = ∑ᵢ pᵢ⋅𝐧ᵢ` integrating/summing around the airfoil.
-  !! To get the classical drag/lift coefficient, the force needs to be divided by `Maₒₒ²⋅γ⋅c/2`,
-  !! where `c` it the chord expressed in grid units.
+  !! The section forces on the airfoil are `𝓕 = 𝓕(𝓤,𝓧)`, where `𝓤` are the states, and `𝓧` are the
+  !! grid vertex coordinates. To get the classical force coefficients, the forces need to be summed
+  !! and be divided by `Maₒₒ²⋅γ⋅c/2`, where `c` it the chord expressed in grid units.
   !!
   !! @param[in] num_radial Number of cells in the radial direction
   !! @param[in] num_angular Number of cells in the angular direction
   !! @param[in] vertices Grid vertex coordinate
   !! @param[in] states States
-  !! @param[inout] total_force Total section force
-  pure subroutine compute_total_force(num_radial, num_angular, vertices, states, total_force)
+  !! @param[inout] forces section forces
+  pure subroutine compute_forces(num_radial, num_angular, vertices, states, forces)
     !f2py integer, intent(hide), depend(states) :: num_radial = size(states, 2)
     !f2py integer, intent(hide), depend(states) :: num_angular = size(states, 3)
     !f2py integer, parameter :: num_var = 4, num_dim = 2
     integer, intent(in) :: num_radial, num_angular
     complex(8), intent(in) :: vertices(num_dim, num_radial + 1, num_angular + 1)
     complex(8), intent(in) :: states(num_var, num_radial, num_angular)
-    complex(8), intent(inout) :: total_force(num_dim)
+    complex(8), intent(inout) :: forces(num_dim, num_angular)
     integer :: n
-    total_force = 0
     do concurrent (n = 1:num_angular)
       associate(&
         state => states(:, 1, n), &
         vertex_bi => vertices(:, 1, n), &
         vertex_fi => vertices(:, 1, n + 1)&
         )
-        total_force = total_force + &
-          get_pressure(state) * make_normal(vertex_bi, vertex_fi)
+        forces(:, n) = get_pressure(state) * make_normal(vertex_bi, vertex_fi)
       end associate
     end do
-  end subroutine compute_total_force
+  end subroutine compute_forces
 
-  !> @brief Computes jacobians of ``compute_total_force`` with respect to ``states``
+  !> @brief Computes jacobians of ``compute_forces`` with respect to ``states``
   !!
-  !! The jacobians `∂𝐟/∂𝓤` are to be used in
-  !! * apply_total_force_wrt_states_fwd, and
-  !! * apply_total_force_wrt_states_rev.
+  !! The jacobians `∂𝓕/∂𝓤` are to be used in
+  !! * apply_forces_wrt_states_fwd, and
+  !! * apply_forces_wrt_states_rev.
   !!
   !! @param[in] num_radial Number of cells in the radial direction
   !! @param[in] num_angular Number of cells in the angular direction
@@ -921,7 +918,7 @@ contains
   !! @param[in] velocities Grid vertex velocities
   !! @param[in] states States
   !! @param[inout] jacs Jacobians
-  pure subroutine compute_total_force_wrt_states(num_radial, num_angular, vertices, states, jacs)
+  pure subroutine compute_forces_wrt_states(num_radial, num_angular, vertices, states, jacs)
     !f2py integer, intent(hide), depend(states) :: num_radial = size(states, 2)
     !f2py integer, intent(hide), depend(states) :: num_angular = size(states, 3)
     !f2py integer, parameter :: num_var = 4, num_dim = 2
@@ -946,13 +943,13 @@ contains
         end do
       end associate
     end do
-  end subroutine compute_total_force_wrt_states
+  end subroutine compute_forces_wrt_states
 
-  !> @brief Computes jacobians of ``compute_total_force`` with respect to ``vertices``
+  !> @brief Computes jacobians of ``compute_forces`` with respect to ``vertices``
   !!
-  !! The jacobians `∂𝐟/∂𝓧` are to be used in
-  !! * apply_total_force_wrt_vertices_fwd, and
-  !! * apply_total_force_wrt_vertices_rev.
+  !! The jacobians `∂𝓕/∂𝓧` are to be used in
+  !! * apply_forces_wrt_vertices_fwd, and
+  !! * apply_forces_wrt_vertices_rev.
   !!
   !! @param[in] num_radial Number of cells in the radial direction
   !! @param[in] num_angular Number of cells in the angular direction
@@ -960,7 +957,7 @@ contains
   !! @param[in] velocities Grid vertex velocities
   !! @param[in] states States
   !! @param[inout] jacs Jacobians
-  pure subroutine compute_total_force_wrt_vertices(num_radial, num_angular, vertices, states, jacs)
+  pure subroutine compute_forces_wrt_vertices(num_radial, num_angular, vertices, states, jacs)
     !f2py integer, intent(hide), depend(states) :: num_radial = size(states, 2)
     !f2py integer, intent(hide), depend(states) :: num_angular = size(states, 3)
     !f2py integer, parameter :: num_var = 4, num_dim = 2, num_force_wrt_vertex = 2
@@ -989,151 +986,125 @@ contains
         end do
       end associate
     end do
-  end subroutine compute_total_force_wrt_vertices
+  end subroutine compute_forces_wrt_vertices
 
-  !> @brief Applies jacobians of ``compute_total_force`` with respect to ``vertices`` in
-  !! forward mode
+  !> @brief Applies jacobians of ``compute_forces`` with respect to ``vertices`` in forward mode
   !!
-  !! Computes the matrix-vector-product `∂𝐟/∂𝓧⋅δ𝓧`, i.e. the directional derivative.
+  !! Computes the matrix-vector-product `∂𝓕/∂𝓧⋅δ𝓧`, i.e. the directional derivative.
   !!
   !! @param[in] num_radial Number of cells in the radial direction
   !! @param[in] num_angular Number of cells in the angular direction
-  !! @param[in] jacs Jacobians from ``compute_total_force_wrt_vertices``
+  !! @param[in] jacs Jacobians from ``compute_forces_wrt_vertices``
   !! @param[in] d_vertices Vector to multiply to the Jacobians
-  !! @param[inout] d_total_force Vector-product
-  pure subroutine apply_total_force_wrt_vertices_fwd(&
-    num_radial, num_angular, jacs, d_vertices, d_total_force)
+  !! @param[inout] d_forces Vector-product
+  pure subroutine apply_forces_wrt_vertices_fwd(&
+    num_radial, num_angular, jacs, d_vertices, d_forces)
     !f2py integer, intent(hide) :: num_radial
     !f2py integer, intent(hide) :: num_angular
     !f2py integer, parameter :: num_var = 4, num_dim = 2, num_force_wrt_vertex = 2
     integer, intent(in) :: num_radial, num_angular
     real(8), intent(in) :: jacs(num_dim, num_dim, num_angular, num_force_wrt_vertex)
     complex(8), intent(in) :: d_vertices(num_dim, num_radial + 1, num_angular + 1)
-    complex(8), intent(inout) :: d_total_force(num_dim)
+    complex(8), intent(inout) :: d_forces(num_dim, num_angular)
     integer :: n
-    d_total_force = 0
     do concurrent (n = 1:num_angular)
       associate (&
         d_vertex_bi => d_vertices(:, 1, n), &
         d_vertex_fi => d_vertices(:, 1, n + 1), &
         jac_bi => jacs(:, :, n, 1), &
-        jac_fi => jacs(:, :, n, 2)&
+        jac_fi => jacs(:, :, n, 2), &
+        d_force => d_forces(:, n)&
         )
-        d_total_force = d_total_force + &
-          matmul(jac_bi, d_vertex_bi) + matmul(jac_fi, d_vertex_fi)
+        d_force = matmul(jac_bi, d_vertex_bi) + matmul(jac_fi, d_vertex_fi)
       end associate
     end do
-  end subroutine apply_total_force_wrt_vertices_fwd
+  end subroutine apply_forces_wrt_vertices_fwd
 
-  !> @brief Applies jacobians of ``compute_total_force`` with respect to ``vertices`` in
-  !! reverse mode
+  !> @brief Applies jacobians of ``compute_forces`` with respect to ``vertices`` in reverse mode
   !!
-  !! Computes the matrix-vector-product `∂𝐟/∂𝓧ᵀ⋅δ𝐟`.
+  !! Computes the matrix-vector-product `∂𝓕/∂𝓧ᵀ⋅δ𝓕`.
   !!
   !! @param[in] num_radial Number of cells in the radial direction
   !! @param[in] num_angular Number of cells in the angular direction
-  !! @param[in] jacs Jacobians from ``compute_total_force_wrt_vertices``
+  !! @param[in] jacs Jacobians from ``compute_forces_wrt_vertices``
   !! @param[in] d_vertices Covector to multiply to the Jacobians
-  !! @param[inout] d_total_force Covector-product
-  pure subroutine apply_total_force_wrt_vertices_rev(&
-    num_radial, num_angular, jacs, d_total_force, d_vertices)
+  !! @param[inout] d_forces Covector-product
+  pure subroutine apply_forces_wrt_vertices_rev(&
+    num_radial, num_angular, jacs, d_forces, d_vertices)
     !f2py integer, intent(hide) :: num_radial
     !f2py integer, intent(hide) :: num_angular
     !f2py integer, parameter :: num_var = 4, num_dim = 2, num_force_wrt_vertex = 2
     integer, intent(in) :: num_radial, num_angular
     real(8), intent(in) :: jacs(num_dim, num_dim, num_angular, num_force_wrt_vertex)
-    complex(8), intent(in) :: d_total_force(num_dim)
+    complex(8), intent(in) :: d_forces(num_dim, num_angular)
     complex(8), intent(inout) :: d_vertices(num_dim, num_radial + 1, num_angular + 1)
     integer :: n
     d_vertices = 0
     do concurrent (n = 1:num_angular)
       associate (&
-        d_vertex_bi => d_vertices(:, 1, n), &
-        d_vertex_fi => d_vertices(:, 1, n + 1), &
+        d_force => d_forces(:, n), &
         jac_bi => jacs(:, :, n, 1), &
-        jac_fi => jacs(:, :, n, 2)&
+        jac_fi => jacs(:, :, n, 2), &
+        d_vertex_bi => d_vertices(:, 1, n), &
+        d_vertex_fi => d_vertices(:, 1, n + 1)&
         )
-        d_vertex_bi = d_vertex_bi + matmul(d_total_force, jac_bi)
-        d_vertex_fi = d_vertex_fi + matmul(d_total_force, jac_fi)
+        d_vertex_bi = d_vertex_bi + matmul(d_force, jac_bi)
+        d_vertex_fi = d_vertex_fi + matmul(d_force, jac_fi)
       end associate
     end do
-  end subroutine apply_total_force_wrt_vertices_rev
+  end subroutine apply_forces_wrt_vertices_rev
 
-  !> @brief Applies jacobians of ``compute_total_force`` with respect to ``states`` in forward mode
+  !> @brief Applies jacobians of ``compute_forces`` with respect to ``states`` in forward mode
   !!
-  !! Computes the matrix-vector-product `∂𝐟/∂𝓤⋅δ𝓤`, i.e. the directional derivative.
+  !! Computes the matrix-vector-product `∂𝓕/∂𝓤⋅δ𝓤`, i.e. the directional derivative.
   !!
   !! @param[in] num_radial Number of cells in the radial direction
   !! @param[in] num_angular Number of cells in the angular direction
-  !! @param[in] jacs Jacobians from ``compute_total_force_wrt_vertices``
+  !! @param[in] jacs Jacobians from ``compute_forces_wrt_vertices``
   !! @param[in] d_states Vector to multiply to the Jacobians
-  !! @param[inout] d_total_force Vector-product
-  pure subroutine apply_total_force_wrt_states_fwd(&
-    num_radial, num_angular, jacs, d_states, d_total_force)
+  !! @param[inout] d_forces Vector-product
+  pure subroutine apply_forces_wrt_states_fwd(&
+    num_radial, num_angular, jacs, d_states, d_forces)
     !f2py integer, intent(hide), depend(d_states) :: num_radial = size(d_states, 2)
     !f2py integer, intent(hide), depend(d_states) :: num_angular = size(d_states, 3)
     !f2py integer, parameter :: num_var = 4, num_dim = 2
     integer, intent(in) :: num_radial, num_angular
     real(8), intent(in) :: jacs(num_dim, num_var, num_angular)
     complex(8), intent(in) :: d_states(num_var, num_radial, num_angular)
-    complex(8), intent(inout) :: d_total_force(num_dim)
+    complex(8), intent(inout) :: d_forces(num_dim, num_angular)
     integer :: n
-    d_total_force = 0
     do concurrent (n = 1:num_angular)
-      associate (d_state => d_states(:, 1, n), jac => jacs(:, :, n))
-        d_total_force = d_total_force + matmul(jac, d_state)
+      associate (d_state => d_states(:, 1, n), jac => jacs(:, :, n), d_force => d_forces(:, n))
+        d_forces(:, n) = matmul(jac, d_state)
       end associate
     end do
-  end subroutine apply_total_force_wrt_states_fwd
+  end subroutine apply_forces_wrt_states_fwd
 
-  !> @brief Applies jacobians of ``compute_total_force`` with respect to ``states`` in reverse mode
+  !> @brief Applies jacobians of ``compute_forces`` with respect to ``states`` in reverse mode
   !!
-  !! Computes the matrix-vector-product `∂𝐟/∂𝓤ᵀ⋅δ𝐟`.
+  !! Computes the matrix-vector-product `∂𝓕/∂𝓤ᵀ⋅δ𝓕`.
   !!
   !! @param[in] num_radial Number of cells in the radial direction
   !! @param[in] num_angular Number of cells in the angular direction
-  !! @param[in] jacs Jacobians from ``compute_total_force_wrt_vertices``
-  !! @param[in] d_total_force Covector to multiply to the Jacobians
+  !! @param[in] jacs Jacobians from ``compute_forces_wrt_vertices``
+  !! @param[in] d_forces Covector to multiply to the Jacobians
   !! @param[inout] d_states Covector-product
-  pure subroutine apply_total_force_wrt_states_rev(&
-    num_radial, num_angular, jacs, d_total_force, d_states)
+  pure subroutine apply_forces_wrt_states_rev(&
+    num_radial, num_angular, jacs, d_forces, d_states)
     !f2py integer, intent(hide), depend(d_states) :: num_radial = size(d_states, 2)
     !f2py integer, intent(hide), depend(d_states) :: num_angular = size(d_states, 3)
     !f2py integer, parameter :: num_var = 4, num_dim = 2
     integer, intent(in) :: num_radial, num_angular
     real(8), intent(in) :: jacs(num_dim, num_var, num_angular)
-    complex(8), intent(in) :: d_total_force(num_dim)
+    complex(8), intent(in) :: d_forces(num_dim, num_angular)
     complex(8), intent(inout) :: d_states(num_var, num_radial, num_angular)
     integer :: n
     d_states = 0
     do concurrent (n = 1:num_angular)
-      associate (d_state => d_states(:, 1, n), jac => jacs(:, :, n))
-        d_state = matmul(d_total_force, jac)
+      associate (d_force => d_forces(:, n), jac => jacs(:, :, n), d_state => d_states(:, 1, n))
+        d_state = matmul(d_force, jac)
       end associate
     end do
-  end subroutine apply_total_force_wrt_states_rev
-
-  !> @brief Computes surface pressure coefficients
-  !!
-  !! The pressure coefficients are `(pᵢ - 1)/(Maₒₒ²⋅γ/2)` for cells at the aifoil wall
-  !!
-  !! @param[in] num_radial Number of cells in the radial direction
-  !! @param[in] num_angular Number of cells in the angular direction
-  !! @param[in] states States
-  !! @param[inout] pressure_coeffs Pressure coefficients
-  subroutine compute_pressure_coeffs(num_radial, num_angular, states, pressure_coeffs)
-    !f2py integer, intent(hide), depend(states) :: num_radial = size(states, 2)
-    !f2py integer, intent(hide), depend(states) :: num_angular = size(states, 3)
-    !f2py integer, parameter :: num_var = 4, num_dim = 2
-    integer, intent(in) :: num_radial, num_angular
-    complex(8), intent(in) :: states(num_var, num_radial, num_angular)
-    real(8), intent(inout) :: pressure_coeffs(num_radial)
-    integer :: n
-    do concurrent (n = 1:num_angular)
-      associate(wall_state => states(:, 1, n))
-        pressure_coeffs(n) = (real(get_pressure(wall_state)) - 1) / (heat_ratio / 2 * mach**2)
-      end associate
-    end do
-  end subroutine compute_pressure_coeffs
+  end subroutine apply_forces_wrt_states_rev
 
 end module spatial_discretization

@@ -24,10 +24,10 @@ class SpatialDiscretization:
 
     Wraps FORTRAN subroutines implementing a central-scheme finite-volume discretization with
     Rusanov/Lax-Friedrich flux for a moving grid. The implementation provides linearization such
-    that one can run both the ordinary differential equation `d𝓤/dt = 𝓡(𝓤,𝓧,𝓥), 𝐟 = 𝐟(𝓤,𝓧)` and
+    that one can run both the ordinary differential equation `d𝓤/dt = 𝓡(𝓤,𝓧,𝓥), 𝓕 = 𝓕(𝓤,𝓧)` and
     the time-invariant state-space representation `dδ𝓤/dt = ∂𝓡/∂𝓤⋅δ𝓤 + ∂𝓡/∂𝓧⋅δ𝓧 + ∂𝓡/∂𝓥⋅dδ𝓧/dt,
-    δ𝐟 = ∂𝐟/∂𝓤⋅δ𝓤 + ∂𝐟/∂𝓧⋅δ𝓧` for the cell averaged states `𝓤`, the grid vertices `𝓧`, the grid
-    velocities `𝓥` and the total section force `𝐟`.
+    δ𝓕 = ∂𝓕/∂𝓤⋅δ𝓤 + ∂𝓕/∂𝓧⋅δ𝓧` for the cell averaged states `𝓤`, the grid vertices `𝓧`, the grid
+    velocities `𝓥` and the forces `𝓕`.
 
     The class allocates and holds the data arrays to be manipulated in-place by the FORTRAN
     subroutines. The general procedure for the user is to in-place modify the instance attribute
@@ -39,14 +39,14 @@ class SpatialDiscretization:
     _vertices: np.ndarray
     _states: np.ndarray
     _odes: np.ndarray
-    _total_force: np.ndarray
+    _forces: np.ndarray
     _surface_pressure_coefficients: np.ndarray
     # Jacobians:
     _odes_wrt_states: np.ndarray
     _odes_wrt_vertices: np.ndarray
     _odes_wrt_velocities: np.ndarray
-    _total_force_wrt_states: np.ndarray
-    _total_force_wrt_vertices: np.ndarray
+    _forces_wrt_states: np.ndarray
+    _forces_wrt_vertices: np.ndarray
 
     def __init__(
         self,
@@ -79,8 +79,8 @@ class SpatialDiscretization:
         self._odes = np.asfortranarray(np.empty(
             (NUM_VAR, self.num_radial, self.num_angular), dtype=complex,
         ))
-        self._total_force = np.asfortranarray(np.empty(
-            2, dtype=complex,
+        self._forces = np.asfortranarray(np.empty(
+            (NUM_DIM, self.num_angular), dtype=complex,
         ))
         self._surface_pressure_coefficients = np.asfortranarray(np.empty(
             self.num_angular, dtype=float,
@@ -94,10 +94,10 @@ class SpatialDiscretization:
         self._odes_wrt_velocities = np.asfortranarray(np.zeros(
             (NUM_VAR, NUM_DIM, self.num_radial, self.num_angular, 4), dtype=float),
         )
-        self._total_force_wrt_states = np.asfortranarray(np.zeros(
+        self._forces_wrt_states = np.asfortranarray(np.zeros(
             (NUM_DIM, NUM_VAR, self.num_angular), dtype=float),
         )
-        self._total_force_wrt_vertices = np.asfortranarray(np.zeros(
+        self._forces_wrt_vertices = np.asfortranarray(np.zeros(
             (NUM_DIM, NUM_DIM, self.num_angular, 2), dtype=float),
         )
         disc.aoa[...] = angle_of_attack
@@ -162,13 +162,13 @@ class SpatialDiscretization:
         return self._odes.real
 
     @property
-    def total_force(self) -> np.ndarray:
-        """Total section force
+    def forces(self) -> np.ndarray:
+        """Section forces
 
-        The current total section force of the airfoil in shape ``(NUM_DIM,)``. Can be computed
-        through ``compute_total_force``.
+        The current section forces on the ``surface_points`` in shape ``(NUM_DIM,num_angular)``.
+        Can be computed through ``compute_forces``.
         """
-        return self._total_force.real
+        return self._forces.real
 
     @property
     def surface_pressure_coefficients(self) -> np.ndarray:
@@ -199,7 +199,7 @@ class SpatialDiscretization:
     def _check_array(
         array: np.ndarray,
         shape: tuple,
-        dtype: np.dtype = np.dtypes.Complex128DType()
+        dtype: np.dtype = np.dtypes.Complex128DType(),
     ) -> None:
         """Checks if the array is suitable to be passed to FORTRAN
 
@@ -239,10 +239,10 @@ class SpatialDiscretization:
             self._vertices, self._velocities, self._states, self._odes_wrt_vertices)
         disc.compute_odes_wrt_velocities(
             self._vertices, self._velocities, self._states, self._odes_wrt_velocities)
-        disc.compute_total_force_wrt_states(
-            self._vertices, self._states, self._total_force_wrt_states)
-        disc.compute_total_force_wrt_vertices(
-            self._vertices, self._states, self._total_force_wrt_vertices)
+        disc.compute_forces_wrt_states(
+            self._vertices, self._states, self._forces_wrt_states)
+        disc.compute_forces_wrt_vertices(
+            self._vertices, self._states, self._forces_wrt_vertices)
 
     def apply_odes_wrt_states_fwd(
         self,
@@ -451,54 +451,54 @@ class SpatialDiscretization:
         )
         return d_states
 
-    def compute_total_force(self) -> None:
-        """Computes the total section force
+    def compute_forces(self) -> None:
+        """Computes the section forces
 
-        Computes ``total_force`` from ``states`` and ``vertices``.
+        Computes ``forces`` from ``states`` and ``vertices``.
 
         """
-        disc.compute_total_force(self._vertices, self._states, self._total_force)
+        disc.compute_forces(self._vertices, self._states, self._forces)
 
-    def apply_total_force_wrt_states_fwd(
+    def apply_forces_wrt_states_fwd(
         self,
         d_states: np.ndarray,
-        d_total_force: np.ndarray | None = None,
+        d_forces: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Applies Jacobians of ``total_force`` with respect to ``states`` in forward mode
+        """Applies Jacobians of ``forces`` with respect to ``states`` in forward mode
 
-        Computes the matrix-vector-product `∂𝐟/∂𝓤⋅δ𝓤`, i.e. the directional derivative.
+        Computes the matrix-vector-product `∂𝓕/∂𝓤⋅δ𝓤`, i.e. the directional derivative.
 
         Args:
             d_states: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
                 array in shape ``(NUM_VAR,num_radial,num_angular)``.
-            d_total_force: Vector into which to store the vector-product. Must be a complex
-                FORTRAN-contiguous array in shape ``(NUM_DIM,)``. if not provided, a newly-allocated
-                array will be returned.
+            d_forces: Vector into which to store the vector-product. Must be a complex
+                FORTRAN-contiguous array in shape ``(NUM_DIM,num_angular)``. if not provided, a
+                newly-allocated array will be returned.
 
         Returns:
             Vector-product.
         """
         self._check_array(d_states, self._states.shape)
-        if d_total_force is not None:
-            self._check_array(d_total_force, self._total_force.shape)
+        if d_forces is not None:
+            self._check_array(d_forces, self._forces.shape)
         else:
-            d_total_force = np.empty_like(self._total_force)
-        disc.apply_total_force_wrt_states_fwd(
-            self._total_force_wrt_states, d_states, d_total_force)
-        return d_total_force
+            d_forces = np.empty_like(self._forces)
+        disc.apply_forces_wrt_states_fwd(
+            self._forces_wrt_states, d_states, d_forces)
+        return d_forces
 
-    def apply_total_force_wrt_states_rev(
+    def apply_forces_wrt_states_rev(
         self,
-        d_total_force: np.ndarray,
+        d_forces: np.ndarray,
         d_states: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Applies Jacobians of ``total_force`` with respect to ``states`` in reverse mode
+        """Applies Jacobians of ``forces`` with respect to ``states`` in reverse mode
 
-        Computes the matrix-vector-product `∂𝐟/∂𝓤ᵀ⋅δ𝐟`.
+        Computes the matrix-vector-product `∂𝓕/∂𝓤ᵀ⋅δ𝓕`.
 
         Args:
-            d_total_force: Covector to multiply to the Jacobians. Must be complex
-                FORTRAN-contiguous array in shape ``(NUM_DIM,)``.
+            d_forces: Covector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(NUM_DIM,num_angular)``.
             d_states: Covector into which to store the covector-product. Must be a complex
                 FORTRAN-contiguous array in shape ``(NUM_DIM,num_radial,num_angular)``. if not
                 provided, a newly-allocated array will be returned.
@@ -506,56 +506,56 @@ class SpatialDiscretization:
         Returns:
             Covector-product.
         """
-        self._check_array(d_total_force, self._total_force.shape)
+        self._check_array(d_forces, self._forces.shape)
         if d_states is not None:
             self._check_array(d_states, self._states.shape)
         else:
             d_states = np.empty_like(self._states)
-        self._check_array(d_total_force, self._total_force.shape)
-        disc.apply_total_force_wrt_states_rev(
-            self._total_force_wrt_states, d_total_force, d_states)
+        self._check_array(d_forces, self._forces.shape)
+        disc.apply_forces_wrt_states_rev(
+            self._forces_wrt_states, d_forces, d_states)
         return d_states
 
-    def apply_total_force_wrt_vertices_fwd(
+    def apply_forces_wrt_vertices_fwd(
         self,
         d_vertices: np.ndarray,
-        d_total_force: np.ndarray | None = None,
+        d_forces: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Applies Jacobians of ``total_force`` with respect to ``vertices`` in forward mode
+        """Applies Jacobians of ``forces`` with respect to ``vertices`` in forward mode
 
-        Computes the matrix-vector-product `∂𝐟/∂𝓧⋅δ𝓧`, i.e. the directional derivative.
+        Computes the matrix-vector-product `∂𝓕/∂𝓧⋅δ𝓧`, i.e. the directional derivative.
 
         Args:
             d_vertices: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
                 array in shape ``(NUM_DIM,num_radial+1,num_angular+1)``.
-            d_total_force: Vector into which to store the vector-product. Must be a complex
-                FORTRAN-contiguous array in shape ``(NUM_DIM,)``. if not provided, a newly-allocated
-                array will be returned.
+            d_forces: Vector into which to store the vector-product. Must be a complex
+                FORTRAN-contiguous array in shape ``(NUM_DIM,num_angular)``. if not provided, a
+                newly-allocated array will be returned.
 
         Returns:
             Vector-product.
         """
         self._check_array(d_vertices, self._vertices.shape)
-        if d_total_force is not None:
-            self._check_array(d_total_force, self._total_force.shape)
+        if d_forces is not None:
+            self._check_array(d_forces, self._forces.shape)
         else:
-            d_total_force = np.empty_like(self._total_force)
-        disc.apply_total_force_wrt_vertices_fwd(
-            self._total_force_wrt_vertices, d_vertices, d_total_force)
-        return d_total_force
+            d_forces = np.empty_like(self._forces)
+        disc.apply_forces_wrt_vertices_fwd(
+            self._forces_wrt_vertices, d_vertices, d_forces)
+        return d_forces
 
-    def apply_total_force_wrt_vertices_rev(
+    def apply_forces_wrt_vertices_rev(
         self,
-        d_total_force: np.ndarray,
+        d_forces: np.ndarray,
         d_vertices: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Applies Jacobians of ``total_force`` with respect to ``vertices`` in reverse mode
+        """Applies Jacobians of ``forces`` with respect to ``vertices`` in reverse mode
 
-        Computes the matrix-vector-product `∂𝐟/∂𝓧ᵀ⋅δ𝐟`.
+        Computes the matrix-vector-product `∂𝓕/∂𝓧ᵀ⋅δ𝓕`.
 
         Args:
-            d_total_force: Covector to multiply to the Jacobians. Must be complex
-                FORTRAN-contiguous array in shape ``(NUM_DIM,)``.
+            d_forces: Covector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(NUM_DIM,num_angular)``.
             d_vertices: Covector into which to store the covector-product. Must be a complex
                 FORTRAN-contiguous array in shape ``(NUM_DIM,num_radial+1,num_angular+1)``. if not
                 provided, a newly-allocated array will be returned.
@@ -563,18 +563,11 @@ class SpatialDiscretization:
         Returns:
             Covector-product.
         """
-        self._check_array(d_total_force, self._total_force.shape)
+        self._check_array(d_forces, self._forces.shape)
         if d_vertices is not None:
             self._check_array(d_vertices, self._vertices.shape)
         else:
             d_vertices = np.empty_like(self._vertices)
-        disc.apply_total_force_wrt_vertices_rev(
-            self._total_force_wrt_vertices, d_total_force, d_vertices)
+        disc.apply_forces_wrt_vertices_rev(
+            self._forces_wrt_vertices, d_forces, d_vertices)
         return d_vertices
-
-    def compute_surface_pressure_coefficients(self) -> None:
-        """Computes the pressure coefficients on the airfoil surface
-
-        Computes ``surface_pressure_coefficients`` from ``states``.
-        """
-        disc.compute_pressure_coeffs(self._states, self._surface_pressure_coefficients)
