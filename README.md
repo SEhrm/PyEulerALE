@@ -3,6 +3,10 @@
 Simple finite volume discretization for the 2D compressible Euler equations around moving airfoils
 implemented in FORTRAN 2008 with Python interface.
 
+<p align="center">
+  <img src=examples/response/sinusoidal.gif>
+</p>
+
 This package implements a finite volume method for the spatial discretization of the two-dimensional
 compressible Euler equations around moving airfoils in arbitrary Lagrangian-Eulerian formulation
 (ALE). The discretization uses a central-scheme with Rusanov/Lax-Friedrich flux for structured
@@ -191,6 +195,26 @@ the different definitions of frequency and lift/moment!)
 <p align="center">
   <img src=examples/response/bode.png>
 </p>
+
+The script also produces ``cp.gz`` containing the steady-state pressure coefficients
+
+$$
+c_\text{p} := \dfrac{p - p_\infty}{\varrho_\infty u_\infty^2\textfractionsolidus 2}
+$$
+
+and a frequency response $`ℒc_\text{p}\textfractionsolidusℒ\alpha`$ at
+$`\omega = 2 u_\infty \textfractionsolidus c`$.
+From that, the time-dependent sinusoidal steady-state for $`2^\circ`$-pitching can be computed as
+
+$$
+c_\text{p}^\text{sss}(t) = c_\text{p} + 2^\circ \cdot
+\left| \frac{ℒc_\text{p}}{ℒ\alpha} \right| \cdot
+\cos\left( \omega t + \angle\left( \frac{ℒc_\text{p}}{ℒ\alpha} \right)\right)
+$$
+
+without the need for time-accurate simulation.
+Note the difference in Phase: the flow reacts slower than the airfoil oscillates, lagging behind
+about a quarter period.
 
 ## Copyright
 

@@ -5,11 +5,12 @@
 Copyright (C) 2025 Simon Ehrmanntraut - All Rights Reserved
 """
 
+import gzip
 from argparse import ArgumentParser
 
 import numpy as np
 
-from py_euler_ale import HEAT_RATIO, SpatialDiscretization
+from py_euler_ale import HEAT_RATIO, SpatialDiscretization, get_pressure, get_pressure_derivative
 
 parser = ArgumentParser(
     description="Computes the responses of Edwards' transfer function at zero angle-of-attack.")
@@ -49,6 +50,41 @@ def coefficients(forces: np.ndarray, points: np.ndarray) -> np.ndarray:
     moment_coef = \
         np.sum(points_z * forces_x - points_x * forces_z) / (dynamic_pressure * args.chord**2)
     return np.array([lift_coef, moment_coef])
+
+
+def export_pressure_coefficients(
+    file_name: str,
+    vertices: np.ndarray,
+    pressures: np.ndarray,
+    pressures_wrt_aoa: np.ndarray,
+) -> None:
+    """Exports the pressure coefficients for plotting.
+
+    For each cell, separated by an empty line, writes four lines for each cell's vertex with columns
+    '`x y cₚ Re(ℒcₚ/ℒα) Im(ℒcₚ/ℒα)`', where `cₚ` is the steady-state pressure coefficient and
+    `ℒcₚ/ℒα` is the transfer from pitch angle to pressure coefficient. File is compressed with Gzip.
+
+    Args:
+        file_name: File name to write to.
+        vertices: Grid vertices.
+        pressures: Steady-state non-dimensional pressure.
+        pressures_wrt_aoa: Response from pitch angle to non-dimensional pressure.
+    """
+    dynamic_pressure = (args.mach_number**2 * HEAT_RATIO / 2)
+    with gzip.open(file_name, mode="w") as file:
+        for m, n in np.ndindex(pressures.shape):
+            cell_vertices = np.vstack((
+                vertices[:, m, n], vertices[:, m, n + 1],
+                vertices[:, m + 1, n + 1], vertices[:, m + 1, n],
+            ))
+            cell_data = np.tile(np.hstack((
+                (pressures[m, n] - 1.) / dynamic_pressure,
+                pressures_wrt_aoa[m, n].real / dynamic_pressure,
+                pressures_wrt_aoa[m, n].imag / dynamic_pressure,
+            )), 4).reshape(4, -1)
+            # noinspection PyTypeChecker
+            np.savetxt(file, np.hstack((cell_vertices, cell_data)), fmt="%+.5e")
+            file.write(b"\n")
 
 
 print(f"{'Mesh file:':<25} {args.mesh_file}")
@@ -128,22 +164,25 @@ for reduced_frequency in np.logspace(-2, 0, 11):
     laplace = 1j * reduced_frequency * free_stream_speed / (args.chord / 2)
 
     # Compute transfer from pitch angle to non-dimensional force
+    states_wrt_aoa = -solver.solve_odes_wrt_states_fwd(
+        shift=laplace,
+        d_odes=(
+            solver.apply_odes_wrt_vertices_fwd(
+                d_vertices=vertices_wrt_aoa,
+            ) +
+            solver.apply_odes_wrt_velocities_fwd(
+                d_velocities=laplace * vertices_wrt_aoa,
+            )
+        ),
+    )
+
+    # Compute transfer from pitch angle to non-dimensional force
     forces_wrt_aoa = (
         solver.apply_forces_wrt_vertices_fwd(
             d_vertices=vertices_wrt_aoa,
         ) +
         solver.apply_forces_wrt_states_fwd(
-            d_states=-solver.solve_odes_wrt_states_fwd(
-                shift=laplace,
-                d_odes=(
-                    solver.apply_odes_wrt_vertices_fwd(
-                        d_vertices=vertices_wrt_aoa,
-                    ) +
-                    solver.apply_odes_wrt_velocities_fwd(
-                        d_velocities=laplace * vertices_wrt_aoa,
-                    )
-                ),
-            ),
+            d_states=states_wrt_aoa,
         )
     )
 
@@ -155,3 +194,13 @@ for reduced_frequency in np.logspace(-2, 0, 11):
 
     # Print coefficients
     print(f"{reduced_frequency:>15.3e} {lift_coef_wrt_aoa:>+25.3e} {moment_coef_wrt_aoa:>+25.3e}")
+
+# Export steady-state pressure coefficients and transfer from pitch angle to pressure coefficients
+# at the last reduced frequency
+# noinspection PyUnboundLocalVariable
+export_pressure_coefficients(
+    file_name="cp.gz",
+    vertices=solver.vertices,
+    pressures=get_pressure(solver.states),
+    pressures_wrt_aoa=get_pressure_derivative(solver.states, states_wrt_aoa),
+)

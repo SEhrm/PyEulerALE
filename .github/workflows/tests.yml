@@ -48,3 +48,5 @@ jobs:
           diff run.out Ma0p5.out
           gnuplot bode.gnuplot
           git diff --exit-code bode.png
+          gnuplot sinusoidal.gnuplot
+          git diff --exit-code sinusoidal.gif

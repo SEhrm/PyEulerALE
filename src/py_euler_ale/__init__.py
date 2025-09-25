@@ -17,10 +17,13 @@ Copyright (C) 2025 Simon Ehrmanntraut - All Rights Reserved
 """
 
 from .core import HEAT_RATIO, NUM_DIM, NUM_VAR, SpatialDiscretization
+from .utils import get_pressure, get_pressure_derivative
 
 __all__ = [
     "HEAT_RATIO",
     "NUM_DIM",
     "NUM_VAR",
     "SpatialDiscretization",
+    "get_pressure",
+    "get_pressure_derivative",
 ]
