@@ -1,3 +1,5 @@
+#!/usr/bin/env gnuplot
+
 set terminal gif large size 1000,400 fontscale 2 background rgb 'black' animate delay 20
 set output 'sinusoidal.gif'
 

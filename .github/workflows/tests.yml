@@ -44,9 +44,14 @@ jobs:
       - name: Run 'Response' regression test
         run: |
           cd examples/response
-          python -u run.py ../grids/naca0004_129x385.plot3d 1.008930 0.5 0 | tee run.out
+          PYTHONUNBUFFERED=1 ./run.py ../grids/naca0004_129x385.plot3d 1.008930 0.5 0 | tee run.out
           diff run.out Ma0p5.out
-          gnuplot bode.gnuplot
+          cd -
+      - name: Check 'Response' plots
+        run: |
+          cd examples/response
+          ./bode.gpi
           git diff --exit-code bode.png
-          gnuplot sinusoidal.gnuplot
+          ./sinusoidal.gpi
           git diff --exit-code sinusoidal.gif
+          cd -

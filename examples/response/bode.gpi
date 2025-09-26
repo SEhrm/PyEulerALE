@@ -1,9 +1,7 @@
+#!/usr/bin/env gnuplot
+
 set terminal png large size 800,600 fontscale 2 background rgb 'black'
 set output 'bode.png'
-set xlabel tc "white"
-set ylabel tc "white"
-set title tc "white"
-set key tc "white"
 set tics tc "white"
 set border lc "white"
 
@@ -36,9 +34,9 @@ set tmargin 3.5
 set bmargin .5
 set format x ""
 unset xlabel
-set title "Pitch angle to coefficient of lift"
-set ylabel "Magnitude (dB)"
-set key samplen 0.5 left top Left box ls 5
+set title "Pitch angle to coefficient of lift" tc "white"
+set ylabel "Magnitude (dB)" tc "white"
+set key samplen 0.5 left top Left box ls 5 tc "white"
 #set yrange [12:18]
 set ytics 0,1,100
 set mytics 2
@@ -52,7 +50,7 @@ set tmargin 0.
 set bmargin 4.
 set format x
 set title ""
-set ylabel "Phase (deg)"
+set ylabel "Phase (deg)" tc "white"
 set xlabel "Reduced frequency" tc "white"
 #set yrange [-15:110]
 set mytics 3
