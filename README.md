@@ -19,12 +19,12 @@ O-type grids.
   wrapped
   in a Python class.
 * Computation of all Jacobians by complex-step for linearized state-space formulation.
-  You can implement implicit time-integration methods and transfer function, and sensitivity
+  You can implement implicit time-integration methods, transfer functions, and sensitivity
   analysis.
 
 The `SpatialDiscretization` Python class stores the cell averaged states $`\underline{\pmb{u}}`$,
 the grid vertices $`\underline{\vec{x}}`$, the grid velocities $`\underline{\vec{v}}`$ and the
-airfoil section forces $`\underline{\vec{f}}`$ and provides the operators for
+airfoil section forces $`\underline{\vec{f}}`$, and provides the operators for
 
 * the nonlinear autonomous ordinary differential equation
 
@@ -130,46 +130,49 @@ The global pseudo time-step size is controlled by switched evolution relaxation 
 time-step size is inverse proportional to the residual norm (note the use of the resolvent):
 
 $$
-\underline{\pmb{u}}^{n+1} = \underline{\pmb{u}}^{n} - \bigg(
-\frac{\partial\underline{\pmb{r}}}{\partial\underline{\pmb{u}}} - \sigma^n\text{Id}
-\bigg)^{-1}
-\underline{\pmb{r}}(\underline{\pmb{u}}^n, \underline{\vec{x}}, \underline{\vec{0}})
+\underline{\pmb{r}}_n :=
+\underline{\pmb{r}}(\underline{\pmb{u}}_n, \underline{\vec{x}}, \underline{\vec{0}}), \quad
+\underline{\pmb{u}}_{n+1} := \underline{\pmb{u}}_{n} - \left(
+\frac{\partial\underline{\pmb{r}}}{\partial\underline{\pmb{u}}} -
+\Vert\underline{\pmb{r}}_n\Vert^{-1}\text{Id}
+\right)^{-1} \underline{\pmb{r}}_n
 $$
 
 At the steady-state, the transfer functions from pitch angle $`\alpha`$ to coefficients of lift and
 moment at Laplace variable $`s`$ read
 
 $$
-\frac{\mathcal{L}(c_\text{l},c_\text{m})}{\mathcal{L}\alpha} :=
-\Bigg[
+\frac{ℒ(c_\text{l},c_\text{m})}{ℒ\alpha} :=
+\left[
 \frac{\partial(c_\text{l},c_\text{m})}{\partial\underline{\vec{f}}}
-\Bigg(
+\left(
 \frac{\partial\underline{\vec{f}}}{\partial\underline{\vec{x}}} -
 \frac{\partial\underline{\vec{f}}}{\partial\underline{\pmb{u}}}
-\bigg(
+\left(
 \frac{\partial\underline{\pmb{r}}}{\partial\underline{\pmb{u}}} - s\text{Id}
-\bigg)^{-1}
-\bigg(
+\right)^{-1}
+\left(
 \frac{\partial\underline{\pmb{r}}}{\partial\underline{\vec{x}}} +
 \frac{\partial\underline{\pmb{r}}}{\partial\underline{\vec{v}}} s
-\bigg)
-\Bigg) +
+\right)
+\right) +
 \frac{\partial(c_\text{l},c_\text{m})}{\partial\underline{\vec{x}}}
-\Bigg]
+\right]
 \frac{\partial\underline{\vec{x}}}{\partial\alpha}
 \text{.}
 $$
 
 The gain $`\partial\underline{\vec{x}}\textfractionsolidus\partial\alpha`$ follows from the rotation
-around
-$`\vec{x}_\text{a}`$ and the gains $`\partial(c_\text{l},c_\text{m})\textfractionsolidus
-\partial\underline{\vec{f}}`$ and $`\partial(c_\text{l},c_\text{m})\textfractionsolidus
-\partial\underline{\vec{x}}`$ follow from the definition of the (classical) coefficients of section
-lift and moment
+around $`\vec{x}_\text{a}`$ and the gains
+$`\partial(c_\text{l},c_\text{m})\textfractionsolidus\partial\underline{\vec{f}}`$ and
+$`\partial(c_\text{l},c_\text{m})\textfractionsolidus\partial\underline{\vec{x}}`$ follow from the
+definition of the (classical) coefficients of section lift and moment
 
 $$
-c_\text{l} := \dfrac{\oint f_z \mathrm{d}s}{\varrho_\infty u_\infty c\textfractionsolidus 2}, \quad
-c_\text{m} := \dfrac{\oint f_x z - f_z (x - x_\text{a}) \mathrm{d}s}{\varrho_\infty u_\infty c^2\textfractionsolidus 2}\text.
+c_\text{l} := \dfrac{\oint f_z \mathrm{d}s}
+{\dfrac{\varrho_\infty}{2} u_\infty^2 c}, \quad
+c_\text{m} := \dfrac{\oint f_x z - f_z (x - x_\text{a}) \mathrm{d}s}
+{\dfrac{\varrho_\infty}{2} u_\infty^2 c^2}\text.
 $$
 
 Running
