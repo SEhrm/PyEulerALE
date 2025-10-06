@@ -280,6 +280,32 @@ class TestJacobi(unittest.TestCase):
             atol=1e-6, rtol=1e-5,
         )
 
+    def test_solve(self) -> None:
+        """Check solutions for Jacobians of ``states`` wrt ``odes``"""
+        shift = rng.random() + rng.random() * 1j
+        # testing fwd
+        d_states = random_like(self.solver.states)
+        np.testing.assert_allclose(
+            self.solver.solve_odes_wrt_states_fwd(
+                d_odes=self.solver.apply_odes_wrt_states_fwd(
+                    d_states=d_states,
+                ) - shift * d_states,
+                shift=shift,
+            ),
+            d_states,
+        )
+        # testing adj
+        d_odes = random_like(self.solver.odes)
+        np.testing.assert_allclose(
+            self.solver.solve_odes_wrt_states_adj(
+                d_states=self.solver.apply_odes_wrt_states_rev(
+                    d_odes=d_odes,
+                ) - shift.conjugate() * d_odes,
+                shift=shift,
+            ),
+            d_odes,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

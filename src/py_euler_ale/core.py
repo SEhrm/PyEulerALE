@@ -9,7 +9,7 @@ Copyright (C) 2025 Simon Ehrmanntraut - All Rights Reserved
 from pathlib import Path
 
 import numpy as np
-from scipy.sparse import bsr_array
+from scipy.sparse import bsr_array, csr_array
 from scipy.sparse.linalg import spsolve
 
 from .euler_ale import spatial_discretization as disc
@@ -408,6 +408,27 @@ class SpatialDiscretization:
         disc.apply_odes_wrt_vertices_rev(self._odes_wrt_velocities, d_odes, d_velocities)
         return d_velocities
 
+    def _assemble_csr(self, shift: float | complex = 0.) -> csr_array:
+        """Assembles the Jacobians of ``odes`` with respect to ``states`` as sparse CSR matrix.
+
+        Args:
+            shift: Shift value to subtract from the main diagonal.
+
+        Returns:
+            (Shifted) Jacobian as CSR matrix.
+        """
+        indices = np.empty((self.num_radial * 5 - 2) * self.num_angular, dtype=np.intc)
+        data = np.empty((4, 4, len(indices)), dtype=float, order="F")
+        index_pointers = np.empty(self.num_angular * self.num_radial + 1, dtype=np.intc)
+        disc.convert_odes_wrt_states(self._odes_wrt_states, data, indices, index_pointers)
+        jacobi = bsr_array((
+            np.moveaxis(data, -1, 0), indices - 1, index_pointers - 1,
+        ), dtype=type(shift)).tocsr()
+        # apply possibly complex shift
+        if shift != 0.:
+            jacobi.setdiag(jacobi.diagonal() - shift)
+        return jacobi
+
     def solve_odes_wrt_states_fwd(
         self,
         d_odes: np.ndarray,
@@ -434,22 +455,45 @@ class SpatialDiscretization:
             d_states = np.empty_like(d_odes, result_dtype)
         else:
             self._check_array(d_states, self._states.shape, result_dtype)
-        # get jacobians as real sparse CSR matrix
-        indices = np.empty((self.num_radial * 5 - 2) * self.num_angular, dtype=np.intc)
-        data = np.empty((4, 4, len(indices)), dtype=float, order="F")
-        index_pointers = np.empty(self.num_angular * self.num_radial + 1, dtype=np.intc)
-        disc.convert_odes_wrt_states(self._odes_wrt_states, data, indices, index_pointers)
-        jacobi = bsr_array((
-            np.moveaxis(data, -1, 0), indices - 1, index_pointers - 1,
-        ), dtype=type(shift)).tocsr()
-        # apply possibly complex shift
-        if shift != 0.:
-            jacobi.setdiag(jacobi.diagonal() - shift)
+        jacobi = self._assemble_csr(shift=shift)
         # sparse LU for possibly complex solution
         d_states.ravel(order="K")[:] = spsolve(
             jacobi, d_odes.ravel(order="K"),
         )
         return d_states
+
+    def solve_odes_wrt_states_adj(
+        self,
+        d_states: np.ndarray,
+        shift: float | complex = 0.,
+        d_odes: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Solves Jacobians of ``odes`` with respect to ``states`` in reverse mode
+
+        Computes the shifted inverse-vector-product `(∂𝓡/∂𝓤 - σ⋅Id)⁻ᴴ⋅δ𝓤`.
+
+        Args:
+            d_states: Covector to multiply to the Inverse. Must be a (complex) FORTRAN-contiguous
+                array in shape ``(NUM_VAR,num_radial,num_angular)``.
+            shift: Shift.
+            d_odes: Covector into which to store the covector-product. Must be (complex)
+                FORTRAN-contiguous array in shape ``(NUM_VAR,num_radial,num_angular)``. if not
+                provided, a newly-allocated (complex) array will be returned.
+
+        Returns:
+            Covector-product.
+        """
+        result_dtype = np.promote_types(type(shift), d_states.dtype)
+        if d_odes is None:
+            d_odes = np.empty_like(d_states, result_dtype)
+        else:
+            self._check_array(d_odes, self._odes.shape, result_dtype)
+        jacobi = self._assemble_csr(shift=shift.conjugate())
+        # sparse LU for possibly complex solution
+        d_odes.ravel(order="K")[:] = spsolve(
+            jacobi.T, d_states.ravel(order="K"),
+        )
+        return d_odes
 
     def compute_forces(self) -> None:
         """Computes the section forces
