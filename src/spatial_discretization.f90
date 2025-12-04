@@ -218,9 +218,9 @@ contains
 
   !> @brief Free-stream state
   !!
-  !! The non-dimensional density is `ϱₒₒ/ϱₒₒ = 1`;
-  !! The non-dimensional speed is `aₒₒMaₒₒ/√(pₒₒ/ϱₒₒ) = Maₒₒ√γ`;
-  !! The non-dimensional total energy is `Eₒₒ/pₒₒ = (pₒₒ/(γ-1) + ϱₒₒaₒₒ²Maₒₒ²/2)/pₒₒ = 1/(γ-1) + γMaₒₒ²/2`.
+  !! The non-dim density is `ϱₒₒ/ϱₒₒ = 1`;
+  !! The non-dim speed is `aₒₒMaₒₒ/√(pₒₒ/ϱₒₒ) = Maₒₒ√γ`;
+  !! The non-dim total energy is `Eₒₒ/pₒₒ = (pₒₒ/(γ-1) + ϱₒₒaₒₒ²Maₒₒ²/2)/pₒₒ = 1/(γ-1) + γMaₒₒ²/2`.
   !!
   !! @return Free stream state
   pure function make_free_stream_state() result (state)
@@ -298,8 +298,10 @@ contains
 
   !> @brief Cell's state rate-of-change
   !!
-  !! The rate of change `d𝓊ᶜ/dt = 𝓇(𝓊ᶜ,𝓊ᵇ,𝓊ᶠ,𝓊ⁱ,𝓊ᵒ,𝓍ᶜ,𝓋ᶜ)` is the negative sum of all the edge fluxes
-  !! over the cell area, i.e. `𝓇 = -1/aᶜ ⋅ [𝒻(𝓊ᶜ,𝓊ᵇ,𝐧ᵇ,𝐯ᵇ)+𝒻(𝓊ᶜ,𝓊ᶠ,𝐧ᶠ,𝐯ᶠ)+𝒻(𝓊ᶜ,𝓊ⁱ,𝐧ⁱ,𝐯ⁱ)+𝒻(𝓊ᶜ,𝓊ᵒ,𝐧ᵒ,𝐯ᵒ)]`.
+  !! The rate of change
+  !!   `d𝓊ᶜ/dt = 𝓇(𝓊ᶜ,𝓊ᵇ,𝓊ᶠ,𝓊ⁱ,𝓊ᵒ,𝓍ᶜ,𝓋ᶜ)`
+  !! is the negative sum of all the edge fluxes over the cell area, i.e.
+  !!   `𝓇 = -1/aᶜ ⋅ [𝒻(𝓊ᶜ,𝓊ᵇ,𝐧ᵇ,𝐯ᵇ)+𝒻(𝓊ᶜ,𝓊ᶠ,𝐧ᶠ,𝐯ᶠ)+𝒻(𝓊ᶜ,𝓊ⁱ,𝐧ⁱ,𝐯ⁱ)+𝒻(𝓊ᶜ,𝓊ᵒ,𝐧ᵒ,𝐯ᵒ)]`.
   !! If the boundary flag is 1 the 'outward' state is ignored and the far-field ghost state is used
   !! instead; if the flat is -1 the 'inward' state is ignored and the wall ghost state is used
   !! instead.
