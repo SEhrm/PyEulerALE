@@ -83,7 +83,7 @@ dynamic_pressure = args.mach_number**2 * HEAT_RATIO / 2
 # Initialize solver
 solver = SpatialDiscretization(
     grid_file=args.mesh_file,
-    mach_numer=args.mach_number,
+    mach_number=args.mach_number,
     angle_of_attack=0.,
     rusanov_factor=args.rusanov,
 )

@@ -35,6 +35,9 @@ class SpatialDiscretization:
     arrays, call an instance method to process the array, and to read the updated array again.
     """
 
+    _mach: complex
+    _aoa: float
+    _rusanov: float
     _num_radial: int
     _num_angular: int
     _vertices: np.ndarray
@@ -52,7 +55,7 @@ class SpatialDiscretization:
         self,
         grid_file: str | Path,
         angle_of_attack: float = 1.25,
-        mach_numer: float = 0.5,
+        mach_number: float = 0.5,
         rusanov_factor: float = 1e-1,
     ) -> None:
         """Initialize the discretization
@@ -61,12 +64,15 @@ class SpatialDiscretization:
             grid_file: Grid file in PLOT3D format with single block. Only two-dimensional,
                 structured, closed, O-type grids can be processed.
             angle_of_attack: Far-field angle of attack in degree.
-            mach_numer: Mach number. The scheme is unlikely to produce reliable results for
-                shocks in the sonic regine.
+            mach_number: Free-stream Mach number. The scheme is unlikely to produce reliable results
+                for shocks in the sonic regine.
             rusanov_factor: Rusanov/Lax-Friedrich flux factor, typically between 0 and 1. Higher
                 values increase stability and avoid oscillations in the solution but introduce but
                 numerical dissipation decreasing the accuracy
         """
+        self.mach_number = mach_number
+        self.angle_of_attack = angle_of_attack
+        self.rusanov_factor = rusanov_factor
         self._vertices = self._read_grid(grid_file)
         self._num_radial = self._vertices.shape[1] - 1
         self._num_angular = self._vertices.shape[2] - 1
@@ -97,10 +103,35 @@ class SpatialDiscretization:
         self._forces_wrt_vertices = np.asfortranarray(np.zeros(
             (NUM_DIM, NUM_DIM, self.num_angular, 2), dtype=float),
         )
-        disc.aoa[...] = angle_of_attack
-        disc.mach[...] = mach_numer
-        disc.rusanov[...] = rusanov_factor
-        disc.set_free_stream_state(self._states)
+        self._configure_disc()
+        disc.set_free_stream_state(self.mach_number, self._states)
+
+    @property
+    def mach_number(self) -> float:
+        """Free-stream Mach number"""
+        return self._mach.real
+
+    @mach_number.setter
+    def mach_number(self, mach_number: float) -> None:
+        self._mach = complex(mach_number)
+
+    @property
+    def angle_of_attack(self) -> float:
+        """Far-field angle of attack in degree"""
+        return self._aoa
+
+    @angle_of_attack.setter
+    def angle_of_attack(self, angle_of_attack: float) -> None:
+        self._aoa = angle_of_attack
+
+    @property
+    def rusanov_factor(self) -> float:
+        """Rusanov/Lax-Friedrich flux factor"""
+        return self._rusanov
+
+    @rusanov_factor.setter
+    def rusanov_factor(self, rusanov_factor: float) -> None:
+        self._rusanov = rusanov_factor
 
     @property
     def num_radial(self) -> int:
@@ -212,21 +243,28 @@ class SpatialDiscretization:
             return
         raise RuntimeError(msg)
 
+    def _configure_disc(self) -> None:
+        """Configures the discretization with current parameters"""
+        disc.aoa[...] = self.angle_of_attack
+        disc.rusanov[...] = self.rusanov_factor
+
     def compute_odes(self) -> None:
         """Computes the states' rate of change (ODE)
 
         Computes ``odes`` from ``states``, ``vertices`` and ``velocities``.
         """
-        disc.compute_odes(self._vertices, self._velocities, self._states, self._odes)
+        self._configure_disc()
+        disc.compute_odes(self._mach, self._vertices, self._velocities, self._states, self._odes)
 
     def linearize(self) -> None:
         """Computes the Jacobians"""
+        self._configure_disc()
         disc.compute_odes_wrt_states(
-            self._vertices, self._velocities, self._states, self._odes_wrt_states)
+            self._mach, self._vertices, self._velocities, self._states, self._odes_wrt_states)
         disc.compute_odes_wrt_vertices(
-            self._vertices, self._velocities, self._states, self._odes_wrt_vertices)
+            self._mach, self._vertices, self._velocities, self._states, self._odes_wrt_vertices)
         disc.compute_odes_wrt_velocities(
-            self._vertices, self._velocities, self._states, self._odes_wrt_velocities)
+            self._mach, self._vertices, self._velocities, self._states, self._odes_wrt_velocities)
         disc.compute_forces_wrt_states(
             self._vertices, self._states, self._forces_wrt_states)
         disc.compute_forces_wrt_vertices(
@@ -489,6 +527,7 @@ class SpatialDiscretization:
         Computes ``forces`` from ``states`` and ``vertices``.
 
         """
+        self._configure_disc()
         disc.compute_forces(self._vertices, self._states, self._forces)
 
     def apply_forces_wrt_states_fwd(
