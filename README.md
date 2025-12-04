@@ -110,8 +110,9 @@ solver = SpatialDiscretization(
   𝑧ₘₙ
   ```
 
-  The first index going radially outward and the second index going angular around the airfoil; for
-  closure, the points need to satisfy $`(x_{i1},y_{i1}) = (x_{in},y_{in}) \forall i=1,\ldots,m`$.
+  The first index going radially outward and the second index going angular around the airfoil in
+  direction of the pitch axis, e.g. trailing edge - lower side - leading edge - upper side. For
+  closure, the points need to satisfy $`(x_{i1},z_{i1}) = (x_{in},z_{in}) \forall i=1,\ldots,m`$.
 
   </details>
 
@@ -213,8 +214,7 @@ c_\text{p}^\text{sss}(t) = c_\text{p} + 2^\circ \cdot
 $$
 
 without the need for time-accurate simulation.
-Note the difference in Phase: the flow reacts slower than the airfoil oscillates, lagging behind
-about a quarter period.
+Note the difference in Phase: lift is no longer governed by the pitch angle, but by the pitch rate.
 
 ## Copyright
 
