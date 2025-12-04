@@ -15,7 +15,7 @@ module spatial_discretization
   !! Riemann-solver-free central scheme with Rusanov/Lax-Friedrich flux without limiter yielding
   !! the ordinary differential equation
   !!
-  !! ``d𝓤/dt = 𝓡(𝓤,𝓧,𝓥)``
+  !! `d𝓤/dt = 𝓡(Maₒₒ,𝓤,𝓧,𝓥)`
   !!
   !! for the grid cell averaged states `𝓤`, given the grid vertex coordinates `𝓧` and grid vertex
   !! velocities `𝓥`. Only closed O-type grids can be processed; for example, if 'unrolled', a
@@ -42,8 +42,8 @@ module spatial_discretization
   !! change the cells' area in time. For non-dimensionalization, free-stream pressure `pₒₒ` and the
   !! free-strem density `ρₒₒ` are taken as reference.
   !!
-  !! The module implements the linearization of `𝓡` per the jacobians `∂𝓡/∂𝓤`, `∂𝓡/∂𝓧`, and
-  !! `∂𝓡/∂𝓥`, computed through complex-step.
+  !! The module implements the linearization of `𝓡` per the jacobians `∂𝓡/∂𝓤`, `∂𝓡/∂𝓧`, `∂𝓡/∂𝓥`,
+  !! and `∂𝓡/∂Maₒₒ`, computed through complex-step.
 
   implicit none
 
@@ -53,14 +53,13 @@ module spatial_discretization
   complex(8), parameter :: i_step = (0, step)    !>@brief Step-size times imaginary unit
   real(8), parameter :: deg_to_rad = 0.0174532925199432957692369_8  !>@brief Factor π/180
   real(8), parameter :: heat_ratio = 1.4_8       !>@brief Specific heat ratio `γ`
-  integer, parameter :: num_dim = 2              !>@brief Number of spatial dimensions
-  integer, parameter :: num_var = 4              !>@brief Number of conserved variables per state
-  integer, parameter :: num_ode_wrt_state = 5    !>@brief Number of states, a cell's ode depend on
-  integer, parameter :: num_ode_wrt_vertex = 4   !>@brief Number of vertices, a cell's ode depend on
-  integer, parameter :: num_force_wrt_vertex = 2
+  integer, parameter :: num_dim = 2              !>@brief Num of spatial dimensions
+  integer, parameter :: num_var = 4              !>@brief Num of conserved variables per state
+  integer, parameter :: num_ode_wrt_state = 5    !>@brief Num of states a cell's ode depend on
+  integer, parameter :: num_ode_wrt_vertex = 4   !>@brief Num of vertices a cell's ode depend on
+  integer, parameter :: num_force_wrt_vertex = 2 !>@brief Num of vertices a face's force depend on
 
   ! To be set through python before calling the procedures
-  real(8), public :: mach      !>@brief Free-stream mach number `Maₒₒ`
   real(8), public :: aoa       !>@brief Free-stream angle-of-attack in degrees `α`
   real(8), public :: rusanov   !>@brief Rusanov/Lax-Friedrichs flux factor `cᵣ`
 
@@ -222,8 +221,10 @@ contains
   !! The non-dim speed is `aₒₒMaₒₒ/√(pₒₒ/ϱₒₒ) = Maₒₒ√γ`;
   !! The non-dim total energy is `Eₒₒ/pₒₒ = (pₒₒ/(γ-1) + ϱₒₒaₒₒ²Maₒₒ²/2)/pₒₒ = 1/(γ-1) + γMaₒₒ²/2`.
   !!
-  !! @return Free stream state
-  pure function make_free_stream_state() result (state)
+  !! @param[in] mach Free-stream mach number `Maₒₒ`
+  !! @return Free-stream state
+  pure function make_free_stream_state(mach) result (state)
+    complex(8), intent(in) :: mach
     complex(8) :: state(num_var)
     associate (free_stream_speed => mach * sqrt(heat_ratio), aoa_rad => deg_to_rad * aoa)
       state(1) = 1
@@ -238,12 +239,14 @@ contains
   !! The average of the ghost state ('outside' the domain) and the far-field state (having the
   !! domain boundary as edge) is to match the free-stream state.
   !!
+  !! @param[in] mach Free-stream mach number `Maₒₒ`
   !! @param[in] farfield_state State in the far-field cell
   !! @return Ghost state
-  pure function make_farfield_ghost_state(farfield_state) result (ghost_state)
+  pure function make_farfield_ghost_state(mach, farfield_state) result (ghost_state)
+    complex(8), intent(in) :: mach
     complex(8), intent(in) :: farfield_state(num_var)
     complex(8) :: ghost_state(num_var)
-    ghost_state = 2 * make_free_stream_state() - farfield_state
+    ghost_state = 2 * make_free_stream_state(mach) - farfield_state
   end function make_farfield_ghost_state
 
   !> @brief Cell area
@@ -314,6 +317,7 @@ contains
   !!  BO │ I │ FO
   !!     └───┘
   !!
+  !! @param[in] mach Free-stream mach number `Maₒₒ`
   !! @param[in] vertex_bi Cell vertex coordinates 'backward-inward'
   !! @param[in] vertex_fi Cell Vertex coordinates 'forward-inward'
   !! @param[in] vertex_fo Cell Vertex coordinates 'forward-outward'
@@ -330,9 +334,10 @@ contains
   !! @param[in] boundary_flag
   !! @return Rate of change of cell state 'center'
   pure function make_ode(&
-    vertex_bi, vertex_fi, vertex_fo, vertex_bo, velo_bi, velo_fi, velo_fo, velo_bo, &
+    mach, vertex_bi, vertex_fi, vertex_fo, vertex_bo, velo_bi, velo_fi, velo_fo, velo_bo, &
     state_c, state_b, state_f, state_i, state_o, boundary_flag&
     ) result (ode)
+    complex(8), intent(in) :: mach
     complex(8), dimension(num_dim), intent(in) :: vertex_bi, vertex_fi, vertex_fo, vertex_bo
     complex(8), dimension(num_dim), intent(in) :: velo_bi, velo_fi, velo_fo, velo_bo
     complex(8), dimension(num_var), intent(in) :: state_c, state_b, state_f
@@ -368,7 +373,7 @@ contains
         ode = -(make_face_flux(state_c, state_b, normal_b, grid_velo_b) + &
           make_face_flux(state_c, state_f, normal_f, grid_velo_f) + &
           make_face_flux(state_c, state_i, normal_i, grid_velo_i) + &
-          make_face_flux(state_c, make_farfield_ghost_state(state_c), normal_o, grid_velo_o)&
+          make_face_flux(state_c, make_farfield_ghost_state(mach, state_c), normal_o, grid_velo_o)&
           ) / area
       end select
     end associate
@@ -398,18 +403,20 @@ contains
   end function get_boundary_flag
 
   !> @brief Sets states to free-stream
+  !! @param[in] mach Free-stream mach number `Maₒₒ`
   !! @param[in] num_radial Number of cells in the radial direction
   !! @param[in] num_angular Number of cells in the angular direction
   !! @param[inout] states States.
-  pure subroutine set_free_stream_state(num_radial, num_angular, states)
+  pure subroutine set_free_stream_state(mach, num_radial, num_angular, states)
     !f2py integer, intent(hide), depend(states) :: num_radial = size(states, 2)
     !f2py integer, intent(hide), depend(states) :: num_angular = size(states, 3)
     !f2py integer, parameter :: num_var = 4, num_dim = 2
+    complex(8), intent(in) :: mach
     integer, intent(in) :: num_radial, num_angular
     complex(8), intent(inout) :: states(num_var, num_radial, num_angular)
     integer :: m, n
     do concurrent (n = 1:num_angular, m = 1:num_radial)
-      states(:, m, n) = make_free_stream_state()
+      states(:, m, n) = make_free_stream_state(mach)
     end do
   end subroutine set_free_stream_state
 
@@ -418,6 +425,7 @@ contains
   !! The states' rate-of-change are `d𝓤/dt = 𝓡(𝓤,𝓧,𝓥)`, where `𝓤` are the
   !! states, `𝓧` are the grid vertex coordinates, and `𝓥` are the grid vertex velocities.
   !!
+  !! @param[in] mach Free-stream mach number `Maₒₒ`
   !! @param[in] num_radial Number of cells in the radial direction
   !! @param[in] num_angular Number of cells in the angular direction
   !! @param[in] vertices Grid vertex coordinate
@@ -425,10 +433,11 @@ contains
   !! @param[in] states States
   !! @param[inout] states States' rate-of-change
   pure subroutine compute_odes(&
-    num_radial, num_angular, vertices, velocities, states, odes)
+    mach, num_radial, num_angular, vertices, velocities, states, odes)
     !f2py integer, intent(hide), depend(states) :: num_radial = size(states, 2)
     !f2py integer, intent(hide), depend(states) :: num_angular = size(states, 3)
     !f2py integer, parameter :: num_var = 4, num_dim = 2
+    complex(8), intent(in) :: mach
     integer, intent(in) :: num_radial, num_angular
     complex(8), intent(in) :: vertices(num_dim, num_radial + 1, num_angular + 1)
     complex(8), intent(in) :: velocities(num_dim, num_radial + 1, num_angular + 1)
@@ -454,7 +463,7 @@ contains
         boundary_flag => get_boundary_flag(num_radial, m), &
         ode => odes(:, m, n)&
         )
-        ode = make_ode(vertex_bi, vertex_fi, vertex_fo, vertex_bo, &
+        ode = make_ode(mach, vertex_bi, vertex_fi, vertex_fo, vertex_bo, &
           velo_bi, velo_fi, velo_fo, velo_bo, &
           state_c, state_b, state_f, state_i, state_o, boundary_flag)
       end associate
@@ -468,6 +477,7 @@ contains
   !! * apply_odes_wrt_states_rev, and
   !! * convert_odes_wrt_states.
   !!
+  !! @param[in] mach Free-stream mach number `Maₒₒ`
   !! @param[in] num_radial Number of cells in the radial direction
   !! @param[in] num_angular Number of cells in the angular direction
   !! @param[in] vertices Grid vertex coordinate
@@ -475,10 +485,11 @@ contains
   !! @param[in] states States
   !! @param[inout] jacs Jacobians
   pure subroutine compute_odes_wrt_states(&
-    num_radial, num_angular, vertices, velocities, states, jacs)
+    mach, num_radial, num_angular, vertices, velocities, states, jacs)
     !f2py integer, intent(hide), depend(states) :: num_radial = size(states, 2)
     !f2py integer, intent(hide), depend(states) :: num_angular = size(states, 3)
     !f2py integer, parameter :: num_var = 4, num_dim = 2, num_ode_wrt_state = 5
+    complex(8), intent(in) :: mach
     integer, intent(in) :: num_radial, num_angular
     complex(8), intent(in) :: vertices(num_dim, num_radial + 1, num_angular + 1)
     complex(8), intent(in) :: velocities(num_dim, num_radial + 1, num_angular + 1)
@@ -511,19 +522,19 @@ contains
         do concurrent (i = 1:num_var)
           d_state = 0
           d_state(i) = i_step
-          jac_c(:, i) = aimag(make_ode(&
+          jac_c(:, i) = aimag(make_ode(mach, &
             vertex_bi, vertex_fi, vertex_fo, vertex_bo, velo_bi, velo_fi, velo_fo, velo_bo, &
             state_c + d_state, state_b, state_f, state_i, state_o, boundary_flag)) / step
-          jac_b(:, i) = aimag(make_ode(&
+          jac_b(:, i) = aimag(make_ode(mach, &
             vertex_bi, vertex_fi, vertex_fo, vertex_bo, velo_bi, velo_fi, velo_fo, velo_bo, &
             state_c, state_b + d_state, state_f, state_i, state_o, boundary_flag)) / step
-          jac_f(:, i) = aimag(make_ode(&
+          jac_f(:, i) = aimag(make_ode(mach, &
             vertex_bi, vertex_fi, vertex_fo, vertex_bo, velo_bi, velo_fi, velo_fo, velo_bo, &
             state_c, state_b, state_f + d_state, state_i, state_o, boundary_flag)) / step
-          if (m > 1) jac_i(:, i) = aimag(make_ode(&
+          if (m > 1) jac_i(:, i) = aimag(make_ode(mach, &
             vertex_bi, vertex_fi, vertex_fo, vertex_bo, velo_bi, velo_fi, velo_fo, velo_bo, &
             state_c, state_b, state_f, state_i + d_state, state_o, boundary_flag)) / step
-          if (m < num_radial) jac_o(:, i) = aimag(make_ode(&
+          if (m < num_radial) jac_o(:, i) = aimag(make_ode(mach, &
             vertex_bi, vertex_fi, vertex_fo, vertex_bo, velo_bi, velo_fi, velo_fo, velo_bo, &
             state_c, state_b, state_f, state_i, state_o + d_state, boundary_flag)) / step
         end do
@@ -674,6 +685,7 @@ contains
   !! * apply_odes_wrt_vertices_fwd, and
   !! * apply_odes_wrt_vertices_rev.
   !!
+  !! @param[in] mach Free-stream mach number `Maₒₒ`
   !! @param[in] num_radial Number of cells in the radial direction
   !! @param[in] num_angular Number of cells in the angular direction
   !! @param[in] vertices Grid vertex coordinate
@@ -681,10 +693,11 @@ contains
   !! @param[in] states States
   !! @param[inout] jacs Jacobians
   pure subroutine compute_odes_wrt_vertices(&
-    num_radial, num_angular, vertices, velocities, states, jacs)
+    mach, num_radial, num_angular, vertices, velocities, states, jacs)
     !f2py integer, intent(hide), depend(states) :: num_radial = size(states, 2)
     !f2py integer, intent(hide), depend(states) :: num_angular = size(states, 3)
     !f2py integer, parameter :: num_var = 4, num_dim = 2, num_ode_wrt_vertex = 4
+    complex(8), intent(in) :: mach
     integer, intent(in) :: num_radial, num_angular
     complex(8), intent(in) :: vertices(num_dim, num_radial + 1, num_angular + 1)
     complex(8), intent(in) :: velocities(num_dim, num_radial + 1, num_angular + 1)
@@ -716,16 +729,20 @@ contains
         do concurrent (i = 1:num_dim)
           d_vertex = 0
           d_vertex(i) = i_step
-          jac_bi(:, i) = aimag(make_ode(vertex_bi + d_vertex, vertex_fi, vertex_fo, vertex_bo, &
+          jac_bi(:, i) = aimag(make_ode(mach, &
+            vertex_bi + d_vertex, vertex_fi, vertex_fo, vertex_bo, &
             velo_bi, velo_fi, velo_fo, velo_bo, state_c, state_b, state_f, state_i, state_o, &
             boundary_flag)) / step
-          jac_fi(:, i) = aimag(make_ode(vertex_bi, vertex_fi + d_vertex, vertex_fo, vertex_bo, &
+          jac_fi(:, i) = aimag(make_ode(mach, &
+            vertex_bi, vertex_fi + d_vertex, vertex_fo, vertex_bo, &
             velo_bi, velo_fi, velo_fo, velo_bo, state_c, state_b, state_f, state_i, state_o, &
             boundary_flag)) / step
-          jac_fo(:, i) = aimag(make_ode(vertex_bi, vertex_fi, vertex_fo + d_vertex, vertex_bo, &
+          jac_fo(:, i) = aimag(make_ode(mach, &
+            vertex_bi, vertex_fi, vertex_fo + d_vertex, vertex_bo, &
             velo_bi, velo_fi, velo_fo, velo_bo, state_c, state_b, state_f, state_i, state_o, &
             boundary_flag)) / step
-          jac_bo(:, i) = aimag(make_ode(vertex_bi, vertex_fi, vertex_fo, vertex_bo + d_vertex, &
+          jac_bo(:, i) = aimag(make_ode(mach, &
+            vertex_bi, vertex_fi, vertex_fo, vertex_bo + d_vertex, &
             velo_bi, velo_fi, velo_fo, velo_bo, state_c, state_b, state_f, state_i, state_o, &
             boundary_flag)) / step
         end do
@@ -818,6 +835,7 @@ contains
   !! * apply_odes_wrt_vertices_fwd, and
   !! * apply_odes_wrt_vertices_rev.
   !!
+  !! @param[in] mach Free-stream mach number `Maₒₒ`
   !! @param[in] num_radial Number of cells in the radial direction
   !! @param[in] num_angular Number of cells in the angular direction
   !! @param[in] vertices Grid vertex coordinate
@@ -825,10 +843,11 @@ contains
   !! @param[in] states States
   !! @param[inout] jacs Jacobians
   pure subroutine compute_odes_wrt_velocities(&
-    num_radial, num_angular, vertices, velocities, states, jacs)
+    mach, num_radial, num_angular, vertices, velocities, states, jacs)
     !f2py integer, intent(hide), depend(states) :: num_radial = size(states, 2)
     !f2py integer, intent(hide), depend(states) :: num_angular = size(states, 3)
     !f2py integer, parameter :: num_var = 4, num_dim = 2, num_ode_wrt_vertex = 4
+    complex(8), intent(in) :: mach
     integer, intent(in) :: num_radial, num_angular
     complex(8), intent(in) :: vertices(num_dim, num_radial + 1, num_angular + 1)
     complex(8), intent(in) :: velocities(num_dim, num_radial + 1, num_angular + 1)
@@ -860,16 +879,16 @@ contains
         do concurrent (i = 1:num_dim)
           d_velo = 0
           d_velo(i) = i_step
-          jac_bi(:, i) = aimag(make_ode(vertex_bi, vertex_fi, vertex_fo, vertex_bo, &
+          jac_bi(:, i) = aimag(make_ode(mach, vertex_bi, vertex_fi, vertex_fo, vertex_bo, &
             velo_bi + d_velo, velo_fi, velo_fo, velo_bo, &
             state_c, state_b, state_f, state_i, state_o, boundary_flag)) / step
-          jac_fi(:, i) = aimag(make_ode(vertex_bi, vertex_fi, vertex_fo, vertex_bo, &
+          jac_fi(:, i) = aimag(make_ode(mach, vertex_bi, vertex_fi, vertex_fo, vertex_bo, &
             velo_bi, velo_fi + d_velo, velo_fo, velo_bo, &
             state_c, state_b, state_f, state_i, state_o, boundary_flag)) / step
-          jac_fo(:, i) = aimag(make_ode(vertex_bi, vertex_fi, vertex_fo, vertex_bo, &
+          jac_fo(:, i) = aimag(make_ode(mach, vertex_bi, vertex_fi, vertex_fo, vertex_bo, &
             velo_bi, velo_fi, velo_fo + d_velo, velo_bo, &
             state_c, state_b, state_f, state_i, state_o, boundary_flag)) / step
-          jac_bo(:, i) = aimag(make_ode(vertex_bi, vertex_fi, vertex_fo, vertex_bo, &
+          jac_bo(:, i) = aimag(make_ode(mach, vertex_bi, vertex_fi, vertex_fo, vertex_bo, &
             velo_bi, velo_fi, velo_fo, velo_bo + d_velo, &
             state_c, state_b, state_f, state_i, state_o, boundary_flag)) / step
         end do
