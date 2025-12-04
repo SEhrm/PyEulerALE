@@ -124,7 +124,7 @@ for nt in range(args.iter):
     rel_norm = norm / norm_free_stream
 
     # Print the current iterate
-    print(f"{nt:>6} {norm:>15.3e} {rel_norm:>15.3e}")
+    print(f"{nt:>6} {norm:>15.1e} {rel_norm:>15.1e}")
 
     # Linearize the solver based on the current ``solver.states``
     solver.linearize()

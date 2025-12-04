@@ -183,10 +183,10 @@ $$
 Running
 
 ```commandline
-python examples/response/run.py examples/grids/naca0004_129x385.plot3d 1.008930 0.5 0.0
+python examples/response/run.py examples/grids/naca0004_257x257.plot3d 10. 0.5 0.0
 ```
 
-computes the frequency responses of the NACA-0004, with its chord measuring $`1.008930`$ grid units,
+computes the frequency responses of the NACA-0004, with its chord measuring $`10.0`$ grid units,
 in free-stream Mach number $`Ma_\infty=0.5`$, pitching around the leading edge, at various values
 of reduced frequency $`(\omega c)\textfractionsolidus(2 u_\infty)`$. The results compare well to the
 results from Jordan ["_Aerodynamic flutter coefficients for subsonic, sonic and supersonic flow

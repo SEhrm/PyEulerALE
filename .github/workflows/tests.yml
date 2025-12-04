@@ -44,8 +44,10 @@ jobs:
       - name: Run 'Response' regression test
         run: |
           cd examples/response
-          PYTHONUNBUFFERED=1 ./run.py ../grids/naca0004_129x385.plot3d 1.008930 0.5 0 | tee run.out
-          diff run.out Ma0p5.out
+          python -u run.py ../grids/naca0004_257x257.plot3d 10. 0.05 0 | tee Ma0p05.out
+          git diff --exit-code Ma0p05.out
+          python -u run.py ../grids/naca0004_257x257.plot3d 10. 0.5 0 | tee Ma0p5.out
+          git diff --exit-code Ma0p5.out
           cd -
       - name: Check 'Response' plots
         run: |

@@ -34,7 +34,7 @@ set cbrange [-0.4:0.4]
 set xtics -1.,0.1,2.
 set ytics -1,0.1,1.
 set pm3d noborder
-splot "< gzip -dc Ma0p5.gz" u 1:($2 - $1 * sin(pitch)):(sinusoidal($3, $4, $5)) with polygons palette
+splot "< gzip -dc Ma0p5.gz" u ($1/10):(($2 - $1 * sin(pitch))/10):(sinusoidal($3, $4, $5)) with polygons palette
 
 unset title
 unset ytics
