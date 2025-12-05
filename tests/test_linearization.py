@@ -48,6 +48,36 @@ class TestJacobi(unittest.TestCase):
         self.solver.compute_forces()
         self.solver.linearize()
 
+    def test_odes_wrt_mach(self) -> None:
+        """Compare Jacobians of ``odes`` wrt ``mach`` with finite-difference"""
+        odes_0 = self.solver.odes.copy()
+        jacobi_fd = np.zeros((*odes_0.shape, 1))
+        self.solver.mach_number += 1e-7
+        self.solver.compute_odes()
+        jacobi_fd[:, :, :, 0] = (self.solver.odes - odes_0) / 1e-7
+        # testing jacobis
+        for m in range(self.solver.num_radial):
+            for n in range(self.solver.num_angular):
+                np.testing.assert_allclose(
+                    jacobi_fd[:, m, n, :],
+                    self.solver._odes_wrt_mach[:, :, m, n],
+                    atol=1e-6, rtol=1e-5,
+                )
+        # testing fwd
+        d_mach = np.asfortranarray(1. + 2.j)
+        np.testing.assert_allclose(
+            np.einsum("imnj,j->imn", jacobi_fd, d_mach),
+            self.solver.apply_odes_wrt_mach_fwd(d_mach),
+            atol=1e-6, rtol=1e-5,
+        )
+        # testing rev
+        d_odes = random_like(odes_0)
+        np.testing.assert_allclose(
+            np.einsum("imnj,imn->j", jacobi_fd, d_odes),
+            self.solver.apply_odes_wrt_mach_rev(d_odes),
+            atol=1e-6, rtol=1e-5,
+        )
+
     def test_odes_wrt_states(self) -> None:
         """Compare Jacobians of ``odes`` wrt ``states`` with finite-difference"""
         states_0 = self.solver.states.copy()

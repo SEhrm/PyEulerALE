@@ -88,6 +88,9 @@ class SpatialDiscretization:
         self._forces = np.asfortranarray(np.empty(
             (NUM_DIM, self.num_angular), dtype=complex,
         ))
+        self._odes_wrt_mach = np.asfortranarray(np.zeros(
+            (NUM_VAR, 1, self.num_radial, self.num_angular), dtype=float,
+        ))
         self._odes_wrt_states = np.asfortranarray(np.zeros(
             (NUM_VAR, NUM_VAR, self.num_radial, self.num_angular, 5), dtype=float,
         ))
@@ -259,6 +262,8 @@ class SpatialDiscretization:
     def linearize(self) -> None:
         """Computes the Jacobians"""
         self._configure_disc()
+        disc.compute_odes_wrt_mach(
+            self._mach, self._vertices, self._velocities, self._states, self._odes_wrt_mach)
         disc.compute_odes_wrt_states(
             self._mach, self._vertices, self._velocities, self._states, self._odes_wrt_states)
         disc.compute_odes_wrt_vertices(
@@ -269,6 +274,60 @@ class SpatialDiscretization:
             self._vertices, self._states, self._forces_wrt_states)
         disc.compute_forces_wrt_vertices(
             self._vertices, self._states, self._forces_wrt_vertices)
+
+    def apply_odes_wrt_mach_fwd(
+        self,
+        d_mach: np.ndarray,
+        d_odes: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Applies Jacobians of ``odes`` with respect to ``mach_number`` in forward mode
+
+        Computes the matrix-vector-product `∂𝓡/∂Maₒₒ⋅δMaₒₒ`, i.e. the directional derivative.
+
+        Args:
+            d_mach: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(1)``.
+            d_odes: Vector into which to store the vector-product. Must be a complex
+                FORTRAN-contiguous array in shape ``(NUM_VAR,num_radial,num_angular)``. if not
+                provided, a newly-allocated array will be returned.
+
+        Returns:
+            Vector-product.
+        """
+        self._check_array(d_mach, (1,))
+        if d_odes is not None:
+            self._check_array(d_odes, self._odes.shape)
+        else:
+            d_odes = np.empty_like(self._odes)
+        disc.apply_odes_wrt_mach_fwd(self._odes_wrt_mach, d_mach, d_odes)
+        return d_odes
+
+    def apply_odes_wrt_mach_rev(
+        self,
+        d_odes: np.ndarray,
+        d_mach: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Applies Jacobians of ``odes`` with respect to ``mach_number`` in reverse mode
+
+        Computes the matrix-vector-product `∂𝓡/∂Maₒₒᵀ⋅δ𝓡`.
+
+        Args:
+            d_odes: Covector to multiply to the Jacobians. Must be a complex FORTRAN-contiguous
+                array in shape ``(NUM_VAR,num_radial,num_angular)``.
+            d_mach: Covector into which to store the covector-product. Must be complex
+                FORTRAN-contiguous array in shape ``(1)``. if not provided, a newly-allocated array
+                will be returned.
+
+        Returns:
+            Covector-product.
+        """
+        self._check_array(d_odes, self._odes.shape)
+        if d_mach is not None:
+            self._check_array(d_mach, (1,))
+        else:
+            d_mach = np.empty((1,), dtype=complex)
+        disc.apply_odes_wrt_mach_rev(self._odes_wrt_mach, d_odes, d_mach)
+        return d_mach
 
     def apply_odes_wrt_states_fwd(
         self,
