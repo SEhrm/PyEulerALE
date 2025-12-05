@@ -58,7 +58,7 @@ preview = true
 convention = "google"
 
 [lint.pylint]
-max-public-methods = 30
+max-public-methods = 50
 
 [lint.isort]
 force-single-line = true
