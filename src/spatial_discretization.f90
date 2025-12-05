@@ -65,6 +65,9 @@ module spatial_discretization
 
   public set_free_stream_state
   public compute_odes
+  public compute_odes_wrt_mach
+  public apply_odes_wrt_mach_fwd
+  public apply_odes_wrt_mach_rev
   public compute_odes_wrt_states
   public convert_odes_wrt_states
   public apply_odes_wrt_states_fwd
@@ -384,8 +387,8 @@ contains
   !> @brief Boundary flag
   !!
   !! If the radial index equals 1 the cell is at the airfoil's wall, the boundary flag is -1. If
-  !! the radial index equals the number of cells in the radial direction the, the boundary flag
-  !! is 1. In between, the boundary flag is 0.
+  !! the radial index equals the number of cells in the radial direction the cell is at the
+  !! far-field, the boundary flag is 1. In between, the boundary flag is 0.
   !!
   !! @param[in] num_radial Number of cells in the radial direction
   !! @param[in] m Radial index
@@ -469,6 +472,102 @@ contains
       end associate
     end do
   end subroutine compute_odes
+
+  !> @brief Computes jacobians of ``compute_odes`` with respect to ``mach``
+  !!
+  !! The jacobians `∂𝓡/∂Maₒₒ` are to be used in
+  !! * apply_odes_wrt_mach_fwd,
+  !! * apply_odes_wrt_mach_rev.
+  !!
+  !! @param[in] mach Free-stream mach number `Maₒₒ`
+  !! @param[in] num_radial Number of cells in the radial direction
+  !! @param[in] num_angular Number of cells in the angular direction
+  !! @param[in] vertices Grid vertex coordinate
+  !! @param[in] velocities Grid vertex velocities
+  !! @param[in] states States
+  !! @param[inout] jacs Jacobians
+  pure subroutine compute_odes_wrt_mach(&
+    mach, num_radial, num_angular, vertices, velocities, states, jacs)
+    !f2py integer, intent(hide), depend(states) :: num_radial = size(states, 2)
+    !f2py integer, intent(hide), depend(states) :: num_angular = size(states, 3)
+    !f2py integer, parameter :: num_var = 4, num_dim = 2
+    complex(8), intent(in) :: mach
+    integer, intent(in) :: num_radial, num_angular
+    complex(8), intent(in) :: vertices(num_dim, num_radial + 1, num_angular + 1)
+    complex(8), intent(in) :: velocities(num_dim, num_radial + 1, num_angular + 1)
+    complex(8), intent(in) :: states(num_var, num_radial, num_angular)
+    real(8), intent(inout) :: jacs(num_var, 1, num_radial, num_angular)
+    integer :: n
+    jacs = 0  ! only the far-field ode depends on the Mach number
+    do concurrent (n = 1:num_angular)
+      associate (&
+        vertex_bi => vertices(:, num_radial, n), &
+        vertex_fi => vertices(:, num_radial, n + 1), &
+        vertex_fo => vertices(:, num_radial + 1, n + 1), &
+        vertex_bo => vertices(:, num_radial + 1, n), &
+        velo_bi => velocities(:, num_radial, n), &
+        velo_fi => velocities(:, num_radial, n + 1), &
+        velo_fo => velocities(:, num_radial + 1, n + 1), &
+        velo_bo => velocities(:, num_radial + 1, n), &
+        state_c => states(:, num_radial, n), &
+        state_b => states(:, num_radial, modulo(n - 2, num_angular) + 1), &
+        state_f => states(:, num_radial, modulo(n, num_angular) + 1), &
+        state_i => states(:, num_radial - 1, n) &
+        )
+        jacs(:, 1, num_radial, n) = aimag(make_ode(mach + i_step, &
+          vertex_bi, vertex_fi, vertex_fo, vertex_bo, velo_bi, velo_fi, velo_fo, velo_bo, &
+          state_c, state_b, state_f, state_i, boundary_flag = 1)) / step
+      end associate
+    end do
+  end subroutine compute_odes_wrt_mach
+
+  !> @brief Applies jacobians of ``compute_odes`` with respect to ``mach`` in forward mode
+  !!
+  !! Computes the matrix-vector-product `∂𝓡/∂Maₒₒ⋅δMaₒₒ`, i.e. the directional derivative.
+  !!
+  !! @param[in] num_radial Number of cells in the radial direction
+  !! @param[in] num_angular Number of cells in the angular direction
+  !! @param[in] jacs Jacobians from ``compute_odes_wrt_mach``
+  !! @param[in] d_mach Vector to multiply to the Jacobians
+  !! @param[inout] d_odes Vector-product
+  pure subroutine apply_odes_wrt_mach_fwd(num_radial, num_angular, jacs, d_mach, d_odes)
+    !f2py integer, intent(hide), depend(d_odes) :: num_radial = size(d_odes, 2)
+    !f2py integer, intent(hide), depend(d_odes) :: num_angular = size(d_odes, 3)
+    !f2py integer, parameter :: num_var = 4
+    integer, intent(in) :: num_radial, num_angular
+    real(8), intent(in) :: jacs(num_var, 1, num_radial, num_angular)
+    complex(8), intent(in) :: d_mach(1)
+    complex(8), intent(inout) :: d_odes(num_var, num_radial, num_angular)
+    integer :: m, n
+    do concurrent (n = 1:num_angular, m = 1:num_radial)
+      associate (&
+        jac => jacs(:, :, m, n), &
+        d_ode => d_odes(:, m, n)&
+        )
+        d_ode = matmul(jac, d_mach)
+      end associate
+    end do
+  end subroutine apply_odes_wrt_mach_fwd
+
+  pure subroutine apply_odes_wrt_mach_rev(num_radial, num_angular, jacs, d_odes, d_mach)
+    !f2py integer, intent(hide), depend(d_odes) :: num_radial = size(d_odes, 2)
+    !f2py integer, intent(hide), depend(d_odes) :: num_angular = size(d_odes, 3)
+    !f2py integer, parameter :: num_var = 4
+    integer, intent(in) :: num_radial, num_angular
+    real(8), intent(in) :: jacs(num_var, 1, num_radial, num_angular)
+    complex(8), intent(in) :: d_odes(num_var, num_radial, num_angular)
+    complex(8), intent(inout) :: d_mach(1)
+    integer :: m, n
+    d_mach = 0
+    do concurrent (n = 1:num_angular, m = 1:num_radial)
+      associate (&
+        jac => jacs(:, :, m, n), &
+        d_ode => d_odes(:, m, n)&
+        )
+        d_mach = d_mach + matmul(d_ode, jac)
+      end associate
+    end do
+  end subroutine apply_odes_wrt_mach_rev
 
   !> @brief Computes jacobians of ``compute_odes`` with respect to ``states``
   !!
