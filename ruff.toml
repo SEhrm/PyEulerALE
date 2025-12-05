@@ -51,14 +51,12 @@ ignore = [
     "D415", # missing-terminal-punctuation (in summary)
     "RET504", # unnecessary-assign
     "B008", # function-call-in-default-argument
+    "PLR0904", # too-many-public-methods
 ]
 preview = true
 
 [lint.pydocstyle]
 convention = "google"
-
-[lint.pylint]
-max-public-methods = 30
 
 [lint.isort]
 force-single-line = true

@@ -697,3 +697,475 @@ class SpatialDiscretization:
             d_vertices = np.empty_like(self._vertices)
         disc.apply_forces_wrt_vertices_rev(self._forces_wrt_vertices, d_forces, d_vertices)
         return d_vertices
+
+    def compute_odes_wrt_states_inner_product_wrt_mach(
+        self,
+        d_odes: np.ndarray,
+        d_states: np.ndarray,
+    ) -> np.ndarray:
+        """Computes ``odes`` wrt ``states`` inner-product wrt ``mach_number``.
+
+        Computes the gradient `∂<δ𝓡,∂𝓡/∂𝓤⋅δ𝓤>/∂Maₒₒ`.
+
+        Args:
+            d_odes: Covector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(NUM_VAR,num_radial,num_angular)``.
+            d_states: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(NUM_VAR,num_radial,num_angular)``.
+
+        Returns:
+            Gradient in shape ``(1)``.
+        """
+        self._check_array(d_states, self._states.shape)
+        self._check_array(d_odes, self._odes.shape)
+        gradient_real = np.zeros((1,), dtype=complex)
+        gradient_imag = np.zeros((1,), dtype=complex)
+        odes_wrt_mach_pert_real = np.zeros_like(self._odes_wrt_mach)
+        odes_wrt_mach_pert_imag = np.zeros_like(self._odes_wrt_mach)
+        disc.compute_odes_wrt_mach(
+            self._mach, self._vertices, self._velocities,
+            self._states + 1e-6 * d_states.real, odes_wrt_mach_pert_real,
+        )
+        disc.compute_odes_wrt_mach(
+            self._mach, self._vertices, self._velocities,
+            self._states + 1e-6 * d_states.imag, odes_wrt_mach_pert_imag,
+        )
+        disc.apply_odes_wrt_mach_rev(
+            odes_wrt_mach_pert_real - self._odes_wrt_mach,
+            d_odes.conj(), gradient_real,
+        )
+        disc.apply_odes_wrt_mach_rev(
+            odes_wrt_mach_pert_imag - self._odes_wrt_mach,
+            d_odes.conj(), gradient_imag,
+        )
+        return (gradient_real + gradient_imag * 1j) / 1e-6
+
+    def compute_odes_wrt_states_inner_product_wrt_states(
+        self,
+        d_odes: np.ndarray,
+        d_states: np.ndarray,
+    ) -> np.ndarray:
+        """Computes ``odes`` wrt ``states`` inner-product wrt ``mach_number``.
+
+        Computes the gradient `∂<δ𝓡,∂𝓡/∂𝓤⋅δ𝓤>/∂𝓤`.
+
+        Args:
+            d_odes: Covector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(NUM_VAR,num_radial,num_angular)``.
+            d_states: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(NUM_VAR,num_radial,num_angular)``.
+
+        Returns:
+            Gradient in shape `(NUM_VAR,num_radial,num_angular)``.
+        """
+        self._check_array(d_states, self._states.shape)
+        self._check_array(d_odes, self._odes.shape)
+        gradient_real = np.zeros_like(self._states)
+        gradient_imag = np.zeros_like(self._states)
+        odes_wrt_states_pert_real = np.zeros_like(self._odes_wrt_states)
+        odes_wrt_states_pert_imag = np.zeros_like(self._odes_wrt_states)
+        disc.compute_odes_wrt_states(
+            self._mach, self._vertices, self._velocities,
+            self._states + 1e-6 * d_states.real, odes_wrt_states_pert_real,
+        )
+        disc.compute_odes_wrt_states(
+            self._mach, self._vertices, self._velocities,
+            self._states + 1e-6 * d_states.imag, odes_wrt_states_pert_imag,
+        )
+        disc.apply_odes_wrt_states_rev(
+            odes_wrt_states_pert_real - self._odes_wrt_states,
+            d_odes.conj(), gradient_real,
+        )
+        disc.apply_odes_wrt_states_rev(
+            odes_wrt_states_pert_imag - self._odes_wrt_states,
+            d_odes.conj(), gradient_imag,
+        )
+        return (gradient_real + gradient_imag * 1j) / 1e-6
+
+    def compute_odes_wrt_states_inner_product_wrt_vertices(
+        self,
+        d_odes: np.ndarray,
+        d_states: np.ndarray,
+    ) -> np.ndarray:
+        """Computes ``odes`` wrt ``states`` inner-product wrt ``vertices``.
+
+        Computes the gradient `∂<δ𝓡,∂𝓡/∂𝓤⋅δ𝓤>/∂𝓧`.
+
+        Args:
+            d_odes: Covector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(NUM_VAR,num_radial,num_angular)``.
+            d_states: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(NUM_VAR,num_radial,num_angular)``.
+
+        Returns:
+            Gradient in shape `(NUM_DIM,num_radial+1,num_angular+1)``.
+        """
+        self._check_array(d_states, self._states.shape)
+        self._check_array(d_odes, self._odes.shape)
+        gradient_real = np.zeros_like(self._vertices)
+        gradient_imag = np.zeros_like(self._vertices)
+        odes_wrt_vertices_pert_real = np.zeros_like(self._odes_wrt_vertices)
+        odes_wrt_vertices_pert_imag = np.zeros_like(self._odes_wrt_vertices)
+        disc.compute_odes_wrt_vertices(
+            self._mach, self._vertices, self._velocities,
+            self._states + 1e-6 * d_states.real, odes_wrt_vertices_pert_real,
+        )
+        disc.compute_odes_wrt_vertices(
+            self._mach, self._vertices, self._velocities,
+            self._states + 1e-6 * d_states.imag, odes_wrt_vertices_pert_imag,
+        )
+        disc.apply_odes_wrt_vertices_rev(
+            odes_wrt_vertices_pert_real - self._odes_wrt_vertices,
+            d_odes.conj(), gradient_real,
+        )
+        disc.apply_odes_wrt_vertices_rev(
+            odes_wrt_vertices_pert_imag - self._odes_wrt_vertices,
+            d_odes.conj(), gradient_imag,
+        )
+        return (gradient_real + gradient_imag * 1j) / 1e-6
+
+    def compute_odes_wrt_vertices_inner_product_wrt_mach(
+        self,
+        d_odes: np.ndarray,
+        d_vertices: np.ndarray,
+    ) -> np.ndarray:
+        """Computes ``odes`` wrt ``vertices`` inner-product wrt ``mach``.
+
+        Computes the gradient `∂<δ𝓡,∂𝓡/∂𝓧⋅δ𝓧>/∂Maₒₒ`.
+
+        Args:
+            d_odes: Covector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(NUM_VAR,num_radial,num_angular)``.
+            d_vertices: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(NUM_DIM,num_radial+1,num_angular+1)``.
+
+        Returns:
+            Gradient in shape `(1)``.
+        """
+        self._check_array(d_vertices, self._vertices.shape)
+        self._check_array(d_odes, self._odes.shape)
+        gradient_real = np.zeros((1,), dtype=complex)
+        gradient_imag = np.zeros((1,), dtype=complex)
+        odes_wrt_mach_pert_real = np.zeros_like(self._odes_wrt_mach)
+        odes_wrt_mach_pert_imag = np.zeros_like(self._odes_wrt_mach)
+        disc.compute_odes_wrt_mach(
+            self._mach, self._vertices + 1e-6 * d_vertices.real, self._velocities,
+            self._states, odes_wrt_mach_pert_real,
+        )
+        disc.compute_odes_wrt_mach(
+            self._mach, self._vertices + 1e-6 * d_vertices.imag, self._velocities,
+            self._states, odes_wrt_mach_pert_imag,
+        )
+        disc.apply_odes_wrt_mach_rev(
+            odes_wrt_mach_pert_real - self._odes_wrt_mach,
+            d_odes.conj(), gradient_real,
+        )
+        disc.apply_odes_wrt_mach_rev(
+            odes_wrt_mach_pert_imag - self._odes_wrt_mach,
+            d_odes.conj(), gradient_imag,
+        )
+        return (gradient_real + gradient_imag * 1j) / 1e-6
+
+    def compute_odes_wrt_vertices_inner_product_wrt_states(
+        self,
+        d_odes: np.ndarray,
+        d_vertices: np.ndarray,
+    ) -> np.ndarray:
+        """Computes ``odes`` wrt ``vertices`` inner-product wrt ``states``.
+
+        Computes the gradient `∂<δ𝓡,∂𝓡/∂𝓧⋅δ𝓧>/∂𝓤`.
+
+        Args:
+            d_odes: Covector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(NUM_VAR,num_radial,num_angular)``.
+            d_vertices: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(NUM_DIM,num_radial+1,num_angular+1)``.
+
+        Returns:
+            Gradient in shape `(NUM_VAR,num_radial,num_angular)``.
+        """
+        self._check_array(d_vertices, self._vertices.shape)
+        self._check_array(d_odes, self._odes.shape)
+        gradient_real = np.zeros_like(self._states)
+        gradient_imag = np.zeros_like(self._states)
+        odes_wrt_states_pert_real = np.zeros_like(self._odes_wrt_states)
+        odes_wrt_states_pert_imag = np.zeros_like(self._odes_wrt_states)
+        disc.compute_odes_wrt_states(
+            self._mach, self._vertices + 1e-6 * d_vertices.real, self._velocities,
+            self._states, odes_wrt_states_pert_real,
+        )
+        disc.compute_odes_wrt_states(
+            self._mach, self._vertices + 1e-6 * d_vertices.imag, self._velocities,
+            self._states, odes_wrt_states_pert_imag,
+        )
+        disc.apply_odes_wrt_states_rev(
+            odes_wrt_states_pert_real - self._odes_wrt_states,
+            d_odes.conj(), gradient_real,
+        )
+        disc.apply_odes_wrt_states_rev(
+            odes_wrt_states_pert_imag - self._odes_wrt_states,
+            d_odes.conj(), gradient_imag,
+        )
+        return (gradient_real + gradient_imag * 1j) / 1e-6
+
+    def compute_odes_wrt_vertices_inner_product_wrt_vertices(
+        self,
+        d_odes: np.ndarray,
+        d_vertices: np.ndarray,
+    ) -> np.ndarray:
+        """Computes ``odes`` wrt ``vertices`` inner-product wrt ``vertices``.
+
+        Computes the gradient `∂<δ𝓡,∂𝓡/∂𝓧⋅δ𝓧>/∂𝓧`.
+
+        Args:
+            d_odes: Covector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(NUM_VAR,num_radial,num_angular)``.
+            d_vertices: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(NUM_DIM,num_radial+1,num_angular+1)``.
+
+        Returns:
+            Gradient in shape `(NUM_DIM,num_radial+1,num_angular+1)``.
+        """
+        self._check_array(d_vertices, self._vertices.shape)
+        self._check_array(d_odes, self._odes.shape)
+        gradient_real = np.zeros_like(self._vertices)
+        gradient_imag = np.zeros_like(self._vertices)
+        odes_wrt_vertices_pert_real = np.zeros_like(self._odes_wrt_vertices)
+        odes_wrt_vertices_pert_imag = np.zeros_like(self._odes_wrt_vertices)
+        disc.compute_odes_wrt_vertices(
+            self._mach, self._vertices + 1e-6 * d_vertices.real, self._velocities,
+            self._states, odes_wrt_vertices_pert_real,
+        )
+        disc.compute_odes_wrt_vertices(
+            self._mach, self._vertices + 1e-6 * d_vertices.imag, self._velocities,
+            self._states, odes_wrt_vertices_pert_imag,
+        )
+        disc.apply_odes_wrt_vertices_rev(
+            odes_wrt_vertices_pert_real - self._odes_wrt_vertices,
+            d_odes.conj(), gradient_real,
+        )
+        disc.apply_odes_wrt_vertices_rev(
+            odes_wrt_vertices_pert_imag - self._odes_wrt_vertices,
+            d_odes.conj(), gradient_imag,
+        )
+        return (gradient_real + gradient_imag * 1j) / 1e-6
+
+    def compute_odes_wrt_velocities_inner_product_wrt_mach(
+        self,
+        d_odes: np.ndarray,
+        d_velocities: np.ndarray,
+    ) -> np.ndarray:
+        """Computes ``odes`` wrt ``vertices`` inner-product wrt ``mach``.
+
+        Computes the gradient `∂<δ𝓡,∂𝓡/∂𝓧⋅δ𝓧>/∂Maₒₒ`.
+
+        Args:
+            d_odes: Covector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(NUM_VAR,num_radial,num_angular)``.
+            d_velocities: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(NUM_DIM,num_radial+1,num_angular+1)``.
+
+        Returns:
+            Gradient in shape `(1)``.
+        """
+        raise NotImplementedError
+
+    def compute_odes_wrt_velocities_inner_product_wrt_states(
+        self,
+        d_odes: np.ndarray,
+        d_velocities: np.ndarray,
+    ) -> np.ndarray:
+        """Computes ``odes`` wrt ``vertices`` inner-product wrt ``states``.
+
+        Computes the gradient `∂<δ𝓡,∂𝓡/∂𝓧⋅δ𝓧>/∂𝓤`.
+
+        Args:
+            d_odes: Covector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(NUM_VAR,num_radial,num_angular)``.
+            d_velocities: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(NUM_DIM,num_radial+1,num_angular+1)``.
+
+        Returns:
+            Gradient in shape `(NUM_VAR,num_radial,num_angular)``.
+        """
+        raise NotImplementedError
+
+    def compute_odes_wrt_velocities_inner_product_wrt_vertices(
+        self,
+        d_odes: np.ndarray,
+        d_velocities: np.ndarray,
+    ) -> np.ndarray:
+        """Computes ``odes`` wrt ``vertices`` inner-product wrt ``vertices``.
+
+        Computes the gradient `∂<δ𝓡,∂𝓡/∂𝓧⋅δ𝓧>/∂𝓧`.
+
+        Args:
+            d_odes: Covector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(NUM_VAR,num_radial,num_angular)``.
+            d_velocities: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(NUM_DIM,num_radial+1,num_angular+1)``.
+
+        Returns:
+            Gradient in shape `(NUM_DIM,num_radial+1,num_angular+1)``.
+        """
+        raise NotImplementedError
+
+    def compute_forces_wrt_states_inner_product_wrt_states(
+        self,
+        d_forces: np.ndarray,
+        d_states: np.ndarray,
+    ) -> np.ndarray:
+        """Computes ``forces`` wrt ``states`` inner-product wrt ``states``.
+
+        Computes the gradient `∂<δ𝓕,∂𝓕/∂𝓤⋅δ𝓤>/∂𝓤`.
+
+        Args:
+            d_forces: Covector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(NUM_DIM,num_angular)``.
+            d_states: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(NUM_VAR,num_radial,num_angular)``.
+
+        Returns:
+            Gradient in shape `(NUM_VAR,num_radial,num_angular)``.
+        """
+        self._check_array(d_states, self._states.shape)
+        self._check_array(d_forces, self._forces.shape)
+        gradient_real = np.zeros_like(self._states)
+        gradient_imag = np.zeros_like(self._states)
+        forces_wrt_states_pert_real = np.zeros_like(self._forces_wrt_states)
+        forces_wrt_states_pert_imag = np.zeros_like(self._forces_wrt_states)
+        disc.compute_forces_wrt_states(
+            self._vertices, self._states + 1e-6 * d_states.real, forces_wrt_states_pert_real,
+        )
+        disc.compute_forces_wrt_states(
+            self._vertices, self._states + 1e-6 * d_states.imag, forces_wrt_states_pert_imag,
+        )
+        disc.apply_forces_wrt_states_rev(
+            forces_wrt_states_pert_real - self._forces_wrt_states,
+            d_forces.conj(), gradient_real,
+        )
+        disc.apply_forces_wrt_states_rev(
+            forces_wrt_states_pert_imag - self._forces_wrt_states,
+            d_forces.conj(), gradient_imag,
+        )
+        return (gradient_real + gradient_imag * 1j) / 1e-6
+
+    def compute_forces_wrt_states_inner_product_wrt_vertices(
+        self,
+        d_forces: np.ndarray,
+        d_states: np.ndarray,
+    ) -> np.ndarray:
+        """Computes ``forces`` wrt ``states`` inner-product wrt ``vertices``.
+
+        Computes the gradient `∂<δ𝓕,∂𝓕/∂𝓤⋅δ𝓤>/∂𝓤`.
+
+        Args:
+            d_forces: Covector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(NUM_DIM,num_angular)``.
+            d_states: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(NUM_VAR,num_radial,num_angular)``.
+
+        Returns:
+            Gradient in shape `(NUM_DIM,num_radial+1,num_angular+1)``.
+        """
+        self._check_array(d_states, self._states.shape)
+        self._check_array(d_forces, self._forces.shape)
+        gradient_real = np.zeros_like(self._vertices)
+        gradient_imag = np.zeros_like(self._vertices)
+        forces_wrt_vertices_pert_real = np.zeros_like(self._forces_wrt_vertices)
+        forces_wrt_vertices_pert_imag = np.zeros_like(self._forces_wrt_vertices)
+        disc.compute_forces_wrt_vertices(
+            self._vertices, self._states + 1e-6 * d_states.real, forces_wrt_vertices_pert_real,
+        )
+        disc.compute_forces_wrt_vertices(
+            self._vertices, self._states + 1e-6 * d_states.imag, forces_wrt_vertices_pert_imag,
+        )
+        disc.apply_forces_wrt_vertices_rev(
+            forces_wrt_vertices_pert_real - self._forces_wrt_vertices,
+            d_forces.conj(), gradient_real,
+        )
+        disc.apply_forces_wrt_vertices_rev(
+            forces_wrt_vertices_pert_imag - self._forces_wrt_vertices,
+            d_forces.conj(), gradient_imag,
+        )
+        return (gradient_real + gradient_imag * 1j) / 1e-6
+
+    def compute_forces_wrt_vertices_inner_product_wrt_states(
+        self,
+        d_forces: np.ndarray,
+        d_vertices: np.ndarray,
+    ) -> np.ndarray:
+        """Computes ``forces`` wrt ``vertices`` inner-product wrt ``states``.
+
+        Computes the gradient `∂<δ𝓕,∂𝓕/∂𝓧⋅δ𝓧>/∂𝓤`.
+
+        Args:
+            d_forces: Covector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(NUM_DIM,num_angular)``.
+            d_vertices: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(NUM_DIM,num_radial+1,num_angular+1)``.
+
+        Returns:
+            Gradient in shape `(NUM_VAR,num_radial,num_angular)``.
+        """
+        self._check_array(d_vertices, self._vertices.shape)
+        self._check_array(d_forces, self._forces.shape)
+        gradient_real = np.zeros_like(self._states)
+        gradient_imag = np.zeros_like(self._states)
+        forces_wrt_states_pert_real = np.zeros_like(self._forces_wrt_states)
+        forces_wrt_states_pert_imag = np.zeros_like(self._forces_wrt_states)
+        disc.compute_forces_wrt_states(
+            self._vertices + 1e-6 * d_vertices.real, self._states, forces_wrt_states_pert_real,
+        )
+        disc.compute_forces_wrt_states(
+            self._vertices + 1e-6 * d_vertices.imag, self._states, forces_wrt_states_pert_imag,
+        )
+        disc.apply_forces_wrt_states_rev(
+            forces_wrt_states_pert_real - self._forces_wrt_states,
+            d_forces.conj(), gradient_real,
+        )
+        disc.apply_forces_wrt_states_rev(
+            forces_wrt_states_pert_imag - self._forces_wrt_states,
+            d_forces.conj(), gradient_imag,
+        )
+        return (gradient_real + gradient_imag * 1j) / 1e-6
+
+    def compute_forces_wrt_vertices_inner_product_wrt_vertices(
+        self,
+        d_forces: np.ndarray,
+        d_vertices: np.ndarray,
+    ) -> np.ndarray:
+        """Computes ``forces`` wrt ``vertices`` inner-product wrt ``vertices``.
+
+        Computes the gradient `∂<δ𝓕,∂𝓕/∂𝓧⋅δ𝓧>/∂𝓧`.
+
+        Args:
+            d_forces: Covector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(NUM_DIM,num_angular)``.
+            d_vertices: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(NUM_DIM,num_radial+1,num_angular+1)``.
+
+        Returns:
+            Gradient in shape `(NUM_DIM,num_radial+1,num_angular+1)``.
+        """
+        self._check_array(d_vertices, self._vertices.shape)
+        self._check_array(d_forces, self._forces.shape)
+        gradient_real = np.zeros_like(self._vertices)
+        gradient_imag = np.zeros_like(self._vertices)
+        forces_wrt_vertices_pert_real = np.zeros_like(self._forces_wrt_vertices)
+        forces_wrt_vertices_pert_imag = np.zeros_like(self._forces_wrt_vertices)
+        disc.compute_forces_wrt_vertices(
+            self._vertices + 1e-6 * d_vertices.real, self._states, forces_wrt_vertices_pert_real,
+        )
+        disc.compute_forces_wrt_vertices(
+            self._vertices + 1e-6 * d_vertices.imag, self._states, forces_wrt_vertices_pert_imag,
+        )
+        disc.apply_forces_wrt_vertices_rev(
+            forces_wrt_vertices_pert_real - self._forces_wrt_vertices,
+            d_forces.conj(), gradient_real,
+        )
+        disc.apply_forces_wrt_vertices_rev(
+            forces_wrt_vertices_pert_imag - self._forces_wrt_vertices,
+            d_forces.conj(), gradient_imag,
+        )
+        return (gradient_real + gradient_imag * 1j) / 1e-6

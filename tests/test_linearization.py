@@ -334,6 +334,231 @@ class TestJacobi(unittest.TestCase):
             d_odes,
         )
 
+    def test_odes_wrt_states_inner_product_wrt_mach(self) -> None:
+        """Checks gradient of ``odes`` wrt ``states`` inner-product wrt ``mach_number``"""
+        d_states = self.random_like(self.solver.states)
+        d_odes = self.random_like(self.solver.odes)
+        gradient = np.zeros((1,), dtype=complex)
+        mach_0 = self.solver.mach_number
+        dot_0 = np.vdot(d_odes, self.solver.apply_odes_wrt_states_fwd(d_states))
+        self.solver.mach_number = mach_0 + 1e-6
+        self.solver.linearize()
+        gradient[0] \
+            = (np.vdot(d_odes, self.solver.apply_odes_wrt_states_fwd(d_states)) - dot_0) / 1e-6
+        self.solver.mach_number = mach_0
+        self.solver.linearize()
+        np.testing.assert_allclose(
+            self.solver.compute_odes_wrt_states_inner_product_wrt_mach(d_odes, d_states),
+            gradient, atol=1e-6, rtol=1e-5,
+        )
+
+    def test_odes_wrt_states_inner_product_wrt_states(self) -> None:
+        """Checks gradient of ``odes`` wrt ``states`` inner-product wrt ``states``"""
+        d_states = self.random_like(self.solver.states)
+        d_odes = self.random_like(self.solver.odes)
+        gradient = np.zeros_like(self.solver.states, dtype=complex)
+        states_0 = self.solver.states.copy()
+        dot_0 = np.vdot(d_odes, self.solver.apply_odes_wrt_states_fwd(d_states))
+        for i in range(4):
+            for m in range(self.solver.num_radial):
+                for n in range(self.solver.num_angular):
+                    self.solver.states[:] = np.copy(states_0)
+                    self.solver.states[i, m, n] += 1e-6
+                    self.solver.linearize()
+                    gradient[i, m, n] \
+                        = (np.vdot(d_odes, self.solver.apply_odes_wrt_states_fwd(d_states))
+                           - dot_0) / 1e-6
+        self.solver.states[:] = np.copy(states_0)
+        self.solver.linearize()
+        np.testing.assert_allclose(
+            self.solver.compute_odes_wrt_states_inner_product_wrt_states(d_odes, d_states),
+            gradient, atol=1e-6, rtol=1e-5,
+        )
+
+    def test_odes_wrt_states_inner_product_wrt_vertices(self) -> None:
+        """Checks gradient of ``odes`` wrt ``states`` inner-product wrt ``vertices``"""
+        d_states = self.random_like(self.solver.states)
+        d_odes = self.random_like(self.solver.odes)
+        gradient = np.zeros_like(self.solver.vertices, dtype=complex)
+        vertices_0 = self.solver.vertices.copy()
+        dot_0 = np.vdot(d_odes, self.solver.apply_odes_wrt_states_fwd(d_states))
+        for i in range(2):
+            for m in range(self.solver.num_radial + 1):
+                for n in range(self.solver.num_angular + 1):
+                    self.solver.vertices[:] = np.copy(vertices_0)
+                    step = self.solver.vertices[i, m, n].real * 1e-6 + 1e-6
+                    self.solver.vertices[i, m, n] += step
+                    self.solver.linearize()
+                    gradient[i, m, n] \
+                        = (np.vdot(d_odes, self.solver.apply_odes_wrt_states_fwd(d_states))
+                           - dot_0) / step
+        self.solver.vertices[:] = np.copy(vertices_0)
+        self.solver.linearize()
+        np.testing.assert_allclose(
+            self.solver.compute_odes_wrt_states_inner_product_wrt_vertices(d_odes, d_states),
+            gradient, atol=1e-5, rtol=1e-4,
+        )
+
+    def test_odes_wrt_vertices_inner_product_wrt_mach(self) -> None:
+        """Checks gradient of ``odes`` wrt ``vertices`` inner-product wrt ``mach_number``"""
+        d_vertices = self.random_like(self.solver.vertices)
+        d_odes = self.random_like(self.solver.odes)
+        gradient = np.zeros((1,), dtype=complex)
+        mach_0 = self.solver.mach_number
+        dot_0 = np.vdot(d_odes, self.solver.apply_odes_wrt_vertices_fwd(d_vertices))
+        self.solver.mach_number = mach_0 + 1e-6
+        self.solver.linearize()
+        gradient[0] \
+            = (np.vdot(d_odes, self.solver.apply_odes_wrt_vertices_fwd(d_vertices)) - dot_0) / 1e-6
+        self.solver.mach_number = mach_0
+        self.solver.linearize()
+        np.testing.assert_allclose(
+            self.solver.compute_odes_wrt_vertices_inner_product_wrt_mach(d_odes, d_vertices),
+            gradient, atol=1e-6, rtol=1e-5,
+        )
+
+    def test_odes_wrt_vertices_inner_product_wrt_states(self) -> None:
+        """Checks gradient of ``odes`` wrt ``vertices`` inner-product wrt ``states``"""
+        d_vertices = self.random_like(self.solver.vertices)
+        d_odes = self.random_like(self.solver.odes)
+        gradient = np.zeros_like(self.solver.states, dtype=complex)
+        states_0 = self.solver.states.copy()
+        dot_0 = np.vdot(d_odes, self.solver.apply_odes_wrt_vertices_fwd(d_vertices))
+        for i in range(4):
+            for m in range(self.solver.num_radial):
+                for n in range(self.solver.num_angular):
+                    self.solver.states[:] = np.copy(states_0)
+                    self.solver.states[i, m, n] += 1e-6
+                    self.solver.linearize()
+                    gradient[i, m, n] \
+                        = (np.vdot(d_odes, self.solver.apply_odes_wrt_vertices_fwd(d_vertices))
+                           - dot_0) / 1e-6
+        self.solver.states[:] = np.copy(states_0)
+        self.solver.linearize()
+        np.testing.assert_allclose(
+            self.solver.compute_odes_wrt_vertices_inner_product_wrt_states(d_odes, d_vertices),
+            gradient, atol=1e-6, rtol=1e-5,
+        )
+
+    def test_odes_wrt_vertices_inner_product_wrt_vertices(self) -> None:
+        """Checks gradient of ``odes`` wrt ``vertices`` inner-product wrt ``vertices``"""
+        d_vertices = self.random_like(self.solver.vertices)
+        d_odes = self.random_like(self.solver.odes)
+        gradient = np.zeros_like(self.solver.vertices, dtype=complex)
+        vertices_0 = self.solver.vertices.copy()
+        dot_0 = np.vdot(d_odes, self.solver.apply_odes_wrt_vertices_fwd(d_vertices))
+        for i in range(2):
+            for m in range(self.solver.num_radial + 1):
+                for n in range(self.solver.num_angular + 1):
+                    self.solver.vertices[:] = np.copy(vertices_0)
+                    step = self.solver.vertices[i, m, n].real * 1e-6 + 1e-6
+                    self.solver.vertices[i, m, n] += step
+                    self.solver.linearize()
+                    gradient[i, m, n] \
+                        = (np.vdot(d_odes, self.solver.apply_odes_wrt_vertices_fwd(d_vertices))
+                           - dot_0) / step
+        self.solver.vertices[:] = np.copy(vertices_0)
+        self.solver.linearize()
+        np.testing.assert_allclose(
+            self.solver.compute_odes_wrt_vertices_inner_product_wrt_vertices(d_odes, d_vertices),
+            gradient, atol=1e-5, rtol=1e-4,
+        )
+
+    def test_forces_wrt_states_inner_product_wrt_states(self) -> None:
+        """Checks gradient of ``forces`` wrt ``states`` inner-product wrt ``states``"""
+        d_states = self.random_like(self.solver.states)
+        d_forces = self.random_like(self.solver.forces)
+        gradient = np.zeros_like(self.solver.states, dtype=complex)
+        states_0 = self.solver.states.copy()
+        dot_0 = np.vdot(d_forces, self.solver.apply_forces_wrt_states_fwd(d_states))
+        for i in range(4):
+            for m in range(self.solver.num_radial):
+                for n in range(self.solver.num_angular):
+                    self.solver.states[:] = np.copy(states_0)
+                    self.solver.states[i, m, n] += 1e-6
+                    self.solver.linearize()
+                    gradient[i, m, n] \
+                        = (np.vdot(d_forces, self.solver.apply_forces_wrt_states_fwd(d_states))
+                           - dot_0) / 1e-6
+        self.solver.states[:] = np.copy(states_0)
+        self.solver.linearize()
+        np.testing.assert_allclose(
+            self.solver.compute_forces_wrt_states_inner_product_wrt_states(d_forces, d_states),
+            gradient, atol=1e-6, rtol=1e-5,
+        )
+
+    def test_forces_wrt_states_inner_product_wrt_vertices(self) -> None:
+        """Checks gradient of ``forces`` wrt ``states`` inner-product wrt ``vertices``"""
+        d_states = self.random_like(self.solver.states)
+        d_forces = self.random_like(self.solver.forces)
+        gradient = np.zeros_like(self.solver.vertices, dtype=complex)
+        vertices_0 = self.solver.vertices.copy()
+        dot_0 = np.vdot(d_forces, self.solver.apply_forces_wrt_states_fwd(d_states))
+        for i in range(2):
+            for m in range(self.solver.num_radial + 1):
+                for n in range(self.solver.num_angular + 1):
+                    self.solver.vertices[:] = np.copy(vertices_0)
+                    step = self.solver.vertices[i, m, n].real * 1e-6 + 1e-6
+                    self.solver.vertices[i, m, n] += step
+                    self.solver.linearize()
+                    gradient[i, m, n] \
+                        = (np.vdot(d_forces, self.solver.apply_forces_wrt_states_fwd(d_states))
+                           - dot_0) / step
+        self.solver.vertices[:] = np.copy(vertices_0)
+        self.solver.linearize()
+        np.testing.assert_allclose(
+            self.solver.compute_forces_wrt_states_inner_product_wrt_vertices(d_forces, d_states),
+            gradient, atol=1e-5, rtol=1e-4,
+        )
+
+    def test_forces_wrt_vertices_inner_product_wrt_states(self) -> None:
+        """Checks gradient of ``forces`` wrt ``vertices`` inner-product wrt ``states``"""
+        d_vertices = self.random_like(self.solver.vertices)
+        d_forces = self.random_like(self.solver.forces)
+        gradient = np.zeros_like(self.solver.states, dtype=complex)
+        states_0 = self.solver.states.copy()
+        dot_0 = np.vdot(d_forces, self.solver.apply_forces_wrt_vertices_fwd(d_vertices))
+        for i in range(4):
+            for m in range(self.solver.num_radial):
+                for n in range(self.solver.num_angular):
+                    self.solver.states[:] = np.copy(states_0)
+                    self.solver.states[i, m, n] += 1e-6
+                    self.solver.linearize()
+                    gradient[i, m, n] \
+                        = (np.vdot(d_forces, self.solver.apply_forces_wrt_vertices_fwd(d_vertices))
+                           - dot_0) / 1e-6
+        self.solver.states[:] = np.copy(states_0)
+        self.solver.linearize()
+        np.testing.assert_allclose(
+            self.solver.compute_forces_wrt_vertices_inner_product_wrt_states(d_forces, d_vertices),
+            gradient, atol=1e-6, rtol=1e-5,
+        )
+
+    def test_forces_wrt_vertices_inner_product_wrt_vertices(self) -> None:
+        """Checks gradient of ``forces`` wrt ``vertices`` inner-product wrt ``vertices``"""
+        d_vertices = self.random_like(self.solver.vertices)
+        d_forces = self.random_like(self.solver.forces)
+        gradient = np.zeros_like(self.solver.vertices, dtype=complex)
+        vertices_0 = self.solver.vertices.copy()
+        dot_0 = np.vdot(d_forces, self.solver.apply_forces_wrt_vertices_fwd(d_vertices))
+        for i in range(2):
+            for m in range(self.solver.num_radial + 1):
+                for n in range(self.solver.num_angular + 1):
+                    self.solver.vertices[:] = np.copy(vertices_0)
+                    step = self.solver.vertices[i, m, n].real * 1e-6 + 1e-6
+                    self.solver.vertices[i, m, n] += step
+                    self.solver.linearize()
+                    gradient[i, m, n] \
+                        = (np.vdot(d_forces, self.solver.apply_forces_wrt_vertices_fwd(d_vertices))
+                           - dot_0) / step
+        self.solver.vertices[:] = np.copy(vertices_0)
+        self.solver.linearize()
+        np.testing.assert_allclose(
+            self.solver.compute_forces_wrt_vertices_inner_product_wrt_vertices(
+                d_forces, d_vertices,
+            ), gradient, atol=1e-5, rtol=1e-4,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
