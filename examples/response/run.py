@@ -10,7 +10,11 @@ from argparse import ArgumentParser
 
 import numpy as np
 
-from py_euler_ale import HEAT_RATIO, SpatialDiscretization, get_pressure, get_pressure_derivative
+from py_euler_ale import HEAT_RATIO
+from py_euler_ale import SpatialDiscretization
+from py_euler_ale import get_coefficients
+from py_euler_ale import get_pressure
+from py_euler_ale import get_pressure_derivative
 
 parser = ArgumentParser(
     description="Computes the responses of Edwards' transfer function at zero angle-of-attack.")
@@ -31,27 +35,6 @@ parser.add_argument(
 args = parser.parse_args()
 
 
-def coefficients(forces: np.ndarray, points: np.ndarray) -> np.ndarray:
-    """Computes the section lift coefficient and section moment coefficient
-
-    Reference point for the moment are the grid-coordinates `(0,0)`.
-
-    Args:
-        forces: Surface section forces.
-        points: Surface points.
-
-    Returns:
-        Section lift coefficient and section moment coefficient.
-    """
-    dynamic_pressure = free_stream_speed**2 / 2  # per free-stream pressure
-    points_x, points_z = points
-    forces_x, forces_z = forces
-    lift_coef = np.sum(forces_z) / (dynamic_pressure * args.chord)
-    moment_coef = \
-        np.sum(points_z * forces_x - points_x * forces_z) / (dynamic_pressure * args.chord**2)
-    return np.array([lift_coef, moment_coef])
-
-
 def export_pressure_coefficients(
     file_name: str,
     vertices: np.ndarray,
@@ -70,7 +53,6 @@ def export_pressure_coefficients(
         pressures: Steady-state non-dimensional pressure.
         pressures_wrt_aoa: Response from pitch angle to non-dimensional pressure.
     """
-    dynamic_pressure = (args.mach_number**2 * HEAT_RATIO / 2)
     with gzip.open(file_name, mode="w") as file:
         for m, n in np.ndindex(pressures.shape):
             cell_vertices = np.vstack((
@@ -95,6 +77,8 @@ print(f"{'Rusanov flux factor:':<25} {args.rusanov}")
 
 # Non-dimensional free-stream speed `v₀₀/√(p₀₀/ϱ₀₀) = Ma₀₀⋅√γ`
 free_stream_speed = args.mach_number * HEAT_RATIO**0.5
+# Non-dimensional dynamic pressure `q₀₀/p₀₀ = Ma₀₀²⋅γ/2`
+dynamic_pressure = args.mach_number**2 * HEAT_RATIO / 2
 
 # Initialize solver
 solver = SpatialDiscretization(
@@ -188,8 +172,15 @@ for reduced_frequency in np.logspace(-2, 0, 11):
 
     # Compute transfer from pitch angle to coefficients
     lift_coef_wrt_aoa, moment_coef_wrt_aoa = (
-        coefficients(forces_wrt_aoa, solver.surface_points - [[args.axis_location], [0]]) +
-        coefficients(solver.forces, surface_points_wrt_aoa)
+        get_coefficients(
+            forces=forces_wrt_aoa,
+            surface_points=solver.surface_points - [[args.axis_location], [0]],
+            dynamic_pressure=dynamic_pressure, chord=args.chord,
+        ) +
+        get_coefficients(
+            forces=solver.forces, surface_points=surface_points_wrt_aoa,
+            dynamic_pressure=dynamic_pressure, chord=args.chord,
+        )
     )
 
     # Print coefficients
