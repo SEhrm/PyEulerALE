@@ -9,7 +9,8 @@ Copyright (C) 2025 Simon Ehrmanntraut - All Rights Reserved
 from pathlib import Path
 
 import numpy as np
-from scipy.sparse import bsr_array, csr_array
+from scipy.sparse import bsr_array
+from scipy.sparse import csr_array
 from scipy.sparse.linalg import spsolve
 
 from .euler_ale import spatial_discretization as disc
@@ -40,7 +41,6 @@ class SpatialDiscretization:
     _states: np.ndarray
     _odes: np.ndarray
     _forces: np.ndarray
-    _surface_pressure_coefficients: np.ndarray
     # Jacobians:
     _odes_wrt_states: np.ndarray
     _odes_wrt_vertices: np.ndarray
@@ -81,9 +81,6 @@ class SpatialDiscretization:
         ))
         self._forces = np.asfortranarray(np.empty(
             (NUM_DIM, self.num_angular), dtype=complex,
-        ))
-        self._surface_pressure_coefficients = np.asfortranarray(np.empty(
-            self.num_angular, dtype=float,
         ))
         self._odes_wrt_states = np.asfortranarray(np.zeros(
             (NUM_VAR, NUM_VAR, self.num_radial, self.num_angular, 5), dtype=float,
@@ -169,15 +166,6 @@ class SpatialDiscretization:
         Can be computed through ``compute_forces``.
         """
         return self._forces.real
-
-    @property
-    def surface_pressure_coefficients(self) -> np.ndarray:
-        """Pressure coefficients on the airfoil surface
-
-        The current pressure coefficients on the ``surface_points`` in shape ``(num_angular,)``.
-        Can be computed through `compute_surface_pressure_coefficients``
-        """
-        return self._surface_pressure_coefficients.real
 
     @staticmethod
     def _read_grid(grid_file: str | Path) -> np.ndarray:

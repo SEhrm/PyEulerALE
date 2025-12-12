@@ -10,6 +10,32 @@ import numpy as np
 from .core import HEAT_RATIO
 
 
+def get_coefficients(
+    forces: np.ndarray,
+    surface_points: np.ndarray,
+    dynamic_pressure: float,
+    chord: float,
+) -> np.array:
+    """Gets the section lift coefficient and section moment coefficient
+
+    Reference point for the moment are the grid-coordinates `(0,0)`.
+
+    Args:
+        forces: Surface section forces array in shape ``(NUM_DIM,num_angular)``.
+        surface_points: Surface points array in shape ``(NUM_DIM,num_angular)``.
+        dynamic_pressure: The dynamic pressure (per free-stream pressure).
+        chord: Chord (per grid unit).
+
+    Returns:
+        Section lift coefficient and section moment coefficient.
+    """
+    points_x, points_z = surface_points
+    forces_x, forces_z = forces
+    lift_coef = np.sum(forces_z) / (dynamic_pressure * chord)
+    moment_coef = np.sum(points_z * forces_x - points_x * forces_z) / (dynamic_pressure * chord**2)
+    return np.array([lift_coef, moment_coef])
+
+
 def get_pressure(state: np.ndarray) -> np.number | np.ndarray:
     """Gets the pressure from the four conserved variables
 
