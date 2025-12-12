@@ -1,0 +1,17 @@
+Mesh file:                ../grids/naca0004_257x257.plot3d
+Chord / L:                10.0
+Mach number:              0.4
+Rusanov flux factor:      0.02
+
+Pseudo-transient continuation:
+    it        residual    rel residual
+     0         1.5e+02         1.0e+00
+     1         5.5e+00         3.6e-02
+     2         7.2e-01         4.7e-03
+     3         9.3e-03         6.1e-05
+     4         1.9e-06         1.2e-08
+     5         1.1e-12         7.2e-15
+
+Lift coefficient derivatives:
+wrt pitch angle:                     7.0588 (1/rad)
+wrt pitch angle wrt Mach number:     3.5614 (1/rad)

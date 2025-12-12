@@ -41,19 +41,23 @@ jobs:
       - name: Run unittests
         run: |
           python -m unittest discover tests/
-      - name: Run 'Response' regression test
+      - name: Check 'Response' example
+        working-directory: examples/response
         run: |
-          cd examples/response
           python -u run.py ../grids/naca0004_257x257.plot3d 10. 0.05 0 | tee Ma0p05.out
           git diff --exit-code Ma0p05.out
           python -u run.py ../grids/naca0004_257x257.plot3d 10. 0.5 0 | tee Ma0p5.out
           git diff --exit-code Ma0p5.out
-          cd -
-      - name: Check 'Response' plots
-        run: |
-          cd examples/response
           ./bode.gpi
           git diff --exit-code bode.png
           ./sinusoidal.gpi
           git diff --exit-code sinusoidal.gif
-          cd -
+      - name: Check 'Gain' example
+        working-directory: examples/gain
+        run: |
+          python -u run.py ../grids/naca0004_257x257.plot3d 10. 0.1 | tee Ma0p10.out
+          git diff --exit-code Ma0p10.out
+          python -u run.py ../grids/naca0004_257x257.plot3d 10. 0.5 | tee Ma0p50.out
+          git diff --exit-code Ma0p50.out
+          ./prandtl.gpi
+          git diff --exit-code prandtl.png
