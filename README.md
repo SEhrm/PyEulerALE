@@ -226,6 +226,145 @@ $$
 without the need for time-accurate simulation.
 Note the difference in Phase: lift is no longer governed by the pitch angle, but by the pitch rate.
 
+### NACA-0004 Static Gain Derivative
+
+The derivative with respect to the Mach number of the static gain of the lift coefficient with
+respect to pitching reads
+
+$$
+\frac{\mathrm{d}}{\mathrm{d}Ma_\infty}\left(
+\left.\frac{ℒc_\text{l}}{ℒ\alpha}\right\vert_{s=0}
+\right) =
+-2 Ma_\infty^{-1}\cdot\left.\frac{ℒc_\text{l}}{ℒ\alpha}\right\vert_{s=0} +
+\frac{\partial c_\text{l}}{\partial𝓕}
+\frac{\mathrm{d}}{\mathrm{d}Ma_\infty}\left(
+\left.\frac{ℒ𝓕}{ℒ\alpha}\right\vert_{s=0}
+\right)
+\text{,}
+$$
+
+with
+
+$$
+\frac{\mathrm{d}}{\mathrm{d}Ma_\infty}\left(
+\left.\frac{ℒ𝓕}{ℒ\alpha}\right\vert_{s=0}
+\right) =
+\frac{\partial^2𝓕}{\partial𝓤^2}
+\left.\frac{ℒ𝓤}{ℒ\alpha}\right\vert_{s=0}
+\left.\frac{ℒ𝓤}{ℒMa_\infty}\right\vert_{s=0} +
+\frac{\partial^2𝓕}{\partial{𝓧}\partial𝓤}
+\left.\frac{ℒ𝓤}{ℒMa_\infty}\right\vert_{s=0}
+\frac{\mathrm{d}𝓧}{\mathrm{d}\alpha} +
+\frac{\partial𝓕}{\partial𝓤}
+\frac{\mathrm{d}}{\mathrm{d}Ma_\infty}\left(
+\left.\frac{ℒ𝓤}{ℒ\alpha}\right\vert_{s=0}
+\right)
+$$
+
+and
+
+$$
+\begin{aligned}
+\frac{\mathrm{d}}{\mathrm{d}Ma_\infty}\left(
+\left.\frac{ℒ𝓤}{ℒ\alpha}\right\vert_{s=0}
+\right) =
+&-\left(\frac{\partial𝓡}{\partial𝓤}\right)^{-1}
+\left(
+\frac{\partial^2𝓡}{\partial𝓤\partial Ma_\infty} +
+\frac{\partial^2𝓡}{\partial𝓤^2}
+\left.\frac{ℒ𝓤}{ℒMa_\infty}\right\vert_{s=0}
+\right)
+\left.\frac{ℒ𝓤}{ℒ\alpha}\right\vert_{s=0}\\
+&-\left(\frac{\partial𝓡}{\partial𝓤}\right)^{-1}
+\left(
+\frac{\partial^2𝓡}{\partial𝓧\partial Ma_\infty} +
+\frac{\partial^2𝓡}{\partial𝓧\partial𝓤}
+\left.\frac{ℒ𝓤}{ℒMa_\infty}\right\vert_{s=0}
+\right)
+\frac{\mathrm{d}𝓧}{\mathrm{d}\alpha}\text{.}
+\end{aligned}
+$$
+
+Simplifying and rearranging yields
+
+$$
+\begin{aligned}
+\frac{\mathrm{d}}{\mathrm{d}Ma_\infty}\left(
+\left.\frac{ℒc_\text{l}}{ℒ\alpha}\right\vert_{s=0}
+\right) =
+&-2 Ma_\infty^{-1}\cdot\left.\frac{ℒc_\text{l}}{ℒ\alpha}\right\vert_{s=0}
+\\
+&+
+\left(
+\frac{\partial}{\partial𝓤}
+\left\langle
+\left( \frac{\partial c_\text{l}}{\partial𝓕} \right)^\dagger,
+\frac{\partial𝓕}{\partial𝓤}
+\left.\frac{ℒ𝓤}{ℒ\alpha}\right\vert_{s=0}
+\right\rangle +
+\frac{\partial}{\partial𝓤}
+\left\langle
+\left( \frac{\partial c_\text{l}}{\partial𝓕} \right)^\dagger,
+\frac{\partial𝓕}{\partial𝓧}
+\frac{\mathrm{d}𝓧}{\mathrm{d}\alpha}
+\right\rangle
+\right)
+\left.\frac{ℒ𝓤}{ℒMa_\infty}\right\vert_{s=0}
+\\
+&+
+\left(
+\frac{\partial}{\partial𝓤}
+\left\langle
+\check{𝓡},
+\frac{\partial𝓡}{\partial𝓤}
+\left.\frac{ℒ𝓤}{ℒ\alpha}\right\vert_{s=0}
+\right\rangle +
+\frac{\partial}{\partial𝓤}
+\left\langle
+\check{𝓡},
+\frac{\partial𝓡}{\partial𝓧}
+\frac{\mathrm{d}𝓧}{\mathrm{d}\alpha}
+\right\rangle
+\right)
+\left.\frac{ℒ𝓤}{ℒMa_\infty}\right\vert_{s=0}
+\\
+&+
+\frac{\partial}{\partial Ma_\infty}
+\left\langle
+\check{𝓡},
+\frac{\partial𝓡}{\partial𝓤}
+\left.\frac{ℒ𝓤}{ℒ\alpha}\right\vert_{s=0}
+\right\rangle +
+\frac{\partial}{\partial Ma_\infty}
+\left\langle
+\check{𝓡},
+\frac{\partial𝓡}{\partial𝓧}
+\left.\frac{ℒ𝓧}{ℒ\alpha}\right\vert_{s=0}
+\right\rangle
+\end{aligned}
+$$
+
+where $\check{𝓡}:=
+-(\partial𝓡\textfractionsolidus\partial𝓤)^{-\dagger}
+(\partial𝓕\textfractionsolidus\partial𝓤)^\dagger
+(\partial c_\text{l}\textfractionsolidus\partial𝓕)^\dagger
+$.
+
+Running
+
+```commandline
+python examples/gain/run.py examples/grids/naca0004_257x257.plot3d 10. 0.5
+```
+
+computes the lift coefficient gain of the NACA-0004, with its chord measuring $`10.0`$ grid units,
+in free-stream Mach number $`Ma_\infty=0.5`$, and the derivative of the gain with respect to the
+Mach number. The computed gains and derivatives agree with the Prandtl-Glauert rule.
+
+
+<p align="center">
+  <img src=examples/gain/prandtl.png>
+</p>
+
 ## Copyright
 
 Copyright (C) 2025 Simon Ehrmanntraut - All Rights Reserved
