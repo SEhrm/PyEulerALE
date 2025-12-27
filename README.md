@@ -26,41 +26,41 @@ O-type grids.
   You can implement implicit time-integration methods, transfer functions, and sensitivity
   analysis.
 
-The `SpatialDiscretization` Python class stores the cell averaged states $`\underline{\pmb{u}}`$,
-the grid vertices $`\underline{\vec{x}}`$, the grid velocities $`\underline{\vec{v}}`$ and the
-airfoil section forces $`\underline{\vec{f}}`$, and provides the operators for
+The `SpatialDiscretization` Python class stores the cell averaged states $`𝓤`$,
+the grid vertices $`𝓧`$, the grid velocities $`𝓥`$ and the
+airfoil section forces $`𝓕`$, and provides the operators for
 
 * the nonlinear autonomous ordinary differential equation
 
 $$
-\frac{\mathrm{d}\underline{\pmb{u}}}{\mathrm{d}t} =
-\underline{\pmb{r}}(\underline{\pmb{u}}, \underline{\vec{x}}, \underline{\vec{v}}),
+\frac{\mathrm{d}𝓤}{\mathrm{d}t} =
+𝓡(𝓤, 𝓧, 𝓥),
 \quad
-\underline{\vec{f}} =
-\underline{\vec{f}}(\underline{\pmb{u}}, \underline{\vec{x}})\text{,}
+𝓕 =
+𝓕(𝓤, 𝓧)\text{,}
 $$
 
 * the continuous-time time-invariant linearized state-space representation
 
 $$
-\frac{\mathrm{d}\delta\underline{\pmb{u}}}{\mathrm{d}t} =
-\frac{\partial\underline{\pmb{r}}}{\partial\underline{\pmb{u}}}\cdot\delta\underline{\pmb{u}} +
-\frac{\partial\underline{\pmb{r}}}{\partial\underline{\vec{x}}}\cdot\delta\underline{\vec{x}} +
-\frac{\partial\underline{\pmb{r}}}{\partial\underline{\vec{v}}}\cdot\delta\underline{\vec{v}},
+\frac{\mathrm{d}\delta𝓤}{\mathrm{d}t} =
+\frac{\partial𝓡}{\partial𝓤}\cdot\delta𝓤 +
+\frac{\partial𝓡}{\partial𝓧}\cdot\delta𝓧 +
+\frac{\partial𝓡}{\partial𝓥}\cdot\delta𝓥,
 \quad
-\underline{\vec{f}} =
-\frac{\partial\underline{\vec{f}}}{\partial\underline{\pmb{u}}}\cdot\delta\underline{\pmb{u}} +
-\frac{\partial\underline{\vec{f}}}{\partial\underline{\vec{x}}}\cdot\delta\underline{\vec{x}}
+𝓕 =
+\frac{\partial𝓕}{\partial𝓤}\cdot\delta𝓤 +
+\frac{\partial𝓕}{\partial𝓧}\cdot\delta𝓧
 \text{,}
 $$
 
 * and the resolvent
 
 $$
-\delta\underline{\pmb{u}} = \left(
-\frac{\partial\underline{\pmb{r}}}{\partial\underline{\pmb{u}}} -
+\delta𝓤 = \left(
+\frac{\partial𝓡}{\partial𝓤} -
 \sigma \mathrm{Id}
-\right)^{-1} \cdot \delta\underline{\pmb{r}}\text{.}
+\right)^{-1} \cdot \delta𝓡\text{.}
 $$
 
 ## Installation
@@ -81,7 +81,7 @@ from py_euler_ale import SpatialDiscretization
 
 solver = SpatialDiscretization(
   grid_file='path/to/grid.plot3d',
-  mach_numer=0.5,
+  mach_number=0.5,
   angle_of_attack=1.25,
   rusanov_factor=1e-1,
 )
@@ -135,42 +135,52 @@ The global pseudo time-step size is controlled by switched evolution relaxation 
 time-step size is inverse proportional to the residual norm (note the use of the resolvent):
 
 $$
-\underline{\pmb{r}}_n :=
-\underline{\pmb{r}}(\underline{\pmb{u}}_n, \underline{\vec{x}}, \underline{\vec{0}}), \quad
-\underline{\pmb{u}}_{n+1} := \underline{\pmb{u}}_{n} - \left(
-\frac{\partial\underline{\pmb{r}}}{\partial\underline{\pmb{u}}} -
-\Vert\underline{\pmb{r}}_n\Vert^{-1}\text{Id}
-\right)^{-1} \underline{\pmb{r}}_n
+𝓡_n :=
+𝓡(𝓤_n, 𝓧, 𝟎), \quad
+𝓤_{n+1} := 𝓤_{n} - \left(
+\frac{\partial𝓡}{\partial𝓤} -
+\Vert𝓡_n\Vert^{-1}\text{Id}
+\right)^{-1} 𝓡_n
 $$
 
 At the steady-state, the transfer functions from pitch angle $`\alpha`$ to coefficients of lift and
 moment at Laplace variable $`s`$ read
 
 $$
-\frac{ℒ(c_\text{l},c_\text{m})}{ℒ\alpha} :=
-\left[
-\frac{\partial(c_\text{l},c_\text{m})}{\partial\underline{\vec{f}}}
-\left(
-\frac{\partial\underline{\vec{f}}}{\partial\underline{\vec{x}}} -
-\frac{\partial\underline{\vec{f}}}{\partial\underline{\pmb{u}}}
-\left(
-\frac{\partial\underline{\pmb{r}}}{\partial\underline{\pmb{u}}} - s\text{Id}
-\right)^{-1}
-\left(
-\frac{\partial\underline{\pmb{r}}}{\partial\underline{\vec{x}}} +
-\frac{\partial\underline{\pmb{r}}}{\partial\underline{\vec{v}}} s
-\right)
-\right) +
-\frac{\partial(c_\text{l},c_\text{m})}{\partial\underline{\vec{x}}}
-\right]
-\frac{\partial\underline{\vec{x}}}{\partial\alpha}
-\text{.}
+\left.\frac{ℒ(c_\text{l},c_\text{m})}{ℒ\alpha}\right\vert_s =
+\frac{\partial(c_\text{l},c_\text{m})}{\partial𝓧}
+\frac{\mathrm{d}𝓧}{\mathrm{d}\alpha} +
+\frac{\partial(c_\text{l},c_\text{m})}{\partial𝓕}
+\left.\frac{ℒ𝓕}{ℒ\alpha}\right\vert_s
+\text{,}
 $$
 
-The gain $`\partial\underline{\vec{x}}\textfractionsolidus\partial\alpha`$ follows from the rotation
+where
+
+$$
+\left.\frac{ℒ𝓕}{ℒ\alpha}\right\vert_s =
+\frac{\partial𝓕}{\partial𝓧}
+\frac{\mathrm{d}𝓧}{\mathrm{d}\alpha} +
+\frac{\partial𝓕}{\partial𝓤}
+\left.\frac{ℒ𝓤}{ℒ\alpha}\right\vert_s,
+\qquad
+\left.\frac{ℒ𝓤}{ℒ\alpha}\right\vert_s =
+-\left(
+\frac{\partial𝓡}{\partial𝓤} - s\text{Id}
+\right)^{-1}
+\left(
+\frac{\partial𝓡}{\partial𝓧} +
+\frac{\partial𝓡}{\partial𝓥} s
+\right)
+\frac{\mathrm{d}𝓧}{\mathrm{d}\alpha}
+$$
+
+are the transfer functions from pitch angle to forces and state respectively.
+The gain $`\mathrm{d}𝓧\textfractionsolidus\mathrm{d}\alpha`$ follows from the
+rotation
 around $`\vec{x}_\text{a}`$ and the gains
-$`\partial(c_\text{l},c_\text{m})\textfractionsolidus\partial\underline{\vec{f}}`$ and
-$`\partial(c_\text{l},c_\text{m})\textfractionsolidus\partial\underline{\vec{x}}`$ follow from the
+$`\partial(c_\text{l},c_\text{m})\textfractionsolidus\partial𝓕`$ and
+$`\partial(c_\text{l},c_\text{m})\textfractionsolidus\partial𝓧`$ follow from the
 definition of the (classical) coefficients of section lift and moment
 
 $$
