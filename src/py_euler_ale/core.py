@@ -527,8 +527,7 @@ class SpatialDiscretization:
             self._check_array(d_forces, self._forces.shape)
         else:
             d_forces = np.empty_like(self._forces)
-        disc.apply_forces_wrt_states_fwd(
-            self._forces_wrt_states, d_states, d_forces)
+        disc.apply_forces_wrt_states_fwd(self._forces_wrt_states, d_states, d_forces)
         return d_forces
 
     def apply_forces_wrt_states_rev(
@@ -544,7 +543,7 @@ class SpatialDiscretization:
             d_forces: Covector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
                 array in shape ``(NUM_DIM,num_angular)``.
             d_states: Covector into which to store the covector-product. Must be a complex
-                FORTRAN-contiguous array in shape ``(NUM_DIM,num_radial,num_angular)``. if not
+                FORTRAN-contiguous array in shape ``(NUM_VAR,num_radial,num_angular)``. if not
                 provided, a newly-allocated array will be returned.
 
         Returns:
@@ -556,8 +555,7 @@ class SpatialDiscretization:
         else:
             d_states = np.empty_like(self._states)
         self._check_array(d_forces, self._forces.shape)
-        disc.apply_forces_wrt_states_rev(
-            self._forces_wrt_states, d_forces, d_states)
+        disc.apply_forces_wrt_states_rev(self._forces_wrt_states, d_forces, d_states)
         return d_states
 
     def apply_forces_wrt_vertices_fwd(
@@ -584,8 +582,7 @@ class SpatialDiscretization:
             self._check_array(d_forces, self._forces.shape)
         else:
             d_forces = np.empty_like(self._forces)
-        disc.apply_forces_wrt_vertices_fwd(
-            self._forces_wrt_vertices, d_vertices, d_forces)
+        disc.apply_forces_wrt_vertices_fwd(self._forces_wrt_vertices, d_vertices, d_forces)
         return d_forces
 
     def apply_forces_wrt_vertices_rev(
@@ -612,6 +609,5 @@ class SpatialDiscretization:
             self._check_array(d_vertices, self._vertices.shape)
         else:
             d_vertices = np.empty_like(self._vertices)
-        disc.apply_forces_wrt_vertices_rev(
-            self._forces_wrt_vertices, d_forces, d_vertices)
+        disc.apply_forces_wrt_vertices_rev(self._forces_wrt_vertices, d_forces, d_vertices)
         return d_vertices
