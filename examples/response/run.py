@@ -23,7 +23,7 @@ parser.add_argument(
     "--rusanov", type=float, default=2e-2,
     help="Rusanov/Lax-Friedrich flux factor, typically between 0 and 1. (default: %(default)s)")
 parser.add_argument(
-    "--rtol", type=float, default=1e-12,
+    "--rtol", type=float, default=1e-10,
     help="Residual tolerance to reach relative to free-stream residual. (default: %(default)s)")
 parser.add_argument(
     "--iter", type=int, default=100,
