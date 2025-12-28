@@ -12,22 +12,6 @@ import numpy as np
 
 from py_euler_ale import SpatialDiscretization
 
-rng = np.random.default_rng(seed=0)
-
-
-def random_like(array: np.ndarray) -> np.ndarray:
-    """Creates a randomly populated complex FORTRAN-contiguous array
-
-    Args:
-        array: Array whose shape to copy.
-
-    Returns:
-        Random array
-    """
-    d_states = np.empty_like(array, order="F", dtype=complex)
-    d_states[:] = rng.random(array.shape) + rng.random(array.shape) * 1j
-    return d_states
-
 
 # ruff: noqa: SLF001
 class TestJacobi(unittest.TestCase):
@@ -39,14 +23,28 @@ class TestJacobi(unittest.TestCase):
         Creates a fresh ``SpatialDiscretization`` instance, sets the ``states`` randomly, but
         similar to the free-stream, compute ``odes`` and ``forces``, and perform linearization.
         """
+        self.rng = np.random.default_rng(seed=0)
         self.solver = SpatialDiscretization(
             grid_file=Path(__file__).parent / Path("naca0012_8x9.plot3d"),
             rusanov_factor=1.,
         )
-        self.solver.states[:] *= (rng.random(self.solver.states.shape) - 0.5) * 0.01 + 1.
+        self.solver.states[:] *= (self.rng.random(self.solver.states.shape) - 0.5) * 0.01 + 1.
         self.solver.compute_odes()
         self.solver.compute_forces()
         self.solver.linearize()
+
+    def random_like(self, array: np.ndarray) -> np.ndarray:
+        """Creates a randomly populated complex FORTRAN-contiguous array
+
+        Args:
+            array: Array whose shape to copy.
+
+        Returns:
+            Random array
+        """
+        d_states = np.empty_like(array, order="F", dtype=complex)
+        d_states[:] = self.rng.random(array.shape) + self.rng.random(array.shape) * 1j
+        return d_states
 
     def test_odes_wrt_mach(self) -> None:
         """Compare Jacobians of ``odes`` wrt ``mach`` with finite-difference"""
@@ -71,7 +69,7 @@ class TestJacobi(unittest.TestCase):
             atol=1e-6, rtol=1e-5,
         )
         # testing rev
-        d_odes = random_like(odes_0)
+        d_odes = self.random_like(odes_0)
         np.testing.assert_allclose(
             np.einsum("imnj,imn->j", jacobi_fd, d_odes),
             self.solver.apply_odes_wrt_mach_rev(d_odes),
@@ -121,14 +119,14 @@ class TestJacobi(unittest.TestCase):
                         atol=1e-6, rtol=1e-5,
                     )
         # testing fwd
-        d_states = random_like(states_0)
+        d_states = self.random_like(states_0)
         np.testing.assert_allclose(
             np.einsum("imnjkl,jkl->imn", jacobi_fd, d_states),
             self.solver.apply_odes_wrt_states_fwd(d_states),
             atol=1e-6, rtol=1e-5,
         )
         # testing rev
-        d_odes = random_like(odes_0)
+        d_odes = self.random_like(odes_0)
         np.testing.assert_allclose(
             np.einsum("imnjkl,imn->jkl", jacobi_fd, d_odes),
             self.solver.apply_odes_wrt_states_rev(d_odes),
@@ -171,14 +169,14 @@ class TestJacobi(unittest.TestCase):
                     atol=1e-6, rtol=1e-5,
                 )
         # testing fwd
-        d_vertices = random_like(vertices_0)
+        d_vertices = self.random_like(vertices_0)
         np.testing.assert_allclose(
             np.einsum("imnjkl,jkl->imn", jacobi_fd, d_vertices),
             self.solver.apply_odes_wrt_vertices_fwd(d_vertices),
             atol=1e-6, rtol=1e-5,
         )
         # testing rev
-        d_odes = random_like(odes_0)
+        d_odes = self.random_like(odes_0)
         np.testing.assert_allclose(
             np.einsum("imnjkl,imn->jkl", jacobi_fd, d_odes),
             self.solver.apply_odes_wrt_vertices_rev(d_odes),
@@ -221,14 +219,14 @@ class TestJacobi(unittest.TestCase):
                     atol=1e-6, rtol=1e-5,
                 )
         # testing fwd
-        d_velocities = random_like(velocities_0)
+        d_velocities = self.random_like(velocities_0)
         np.testing.assert_allclose(
             np.einsum("imnjkl,jkl->imn", jacobi_fd, d_velocities),
             self.solver.apply_odes_wrt_velocities_fwd(d_velocities),
             atol=1e-6, rtol=1e-5,
         )
         # testing rev
-        d_odes = random_like(odes_0)
+        d_odes = self.random_like(odes_0)
         np.testing.assert_allclose(
             np.einsum("imnjkl,imn->jkl", jacobi_fd, d_odes),
             self.solver.apply_odes_wrt_velocities_rev(d_odes),
@@ -256,14 +254,14 @@ class TestJacobi(unittest.TestCase):
                 atol=1e-6, rtol=1e-5,
             )
         # testing fwd
-        d_states = random_like(states_0)
+        d_states = self.random_like(states_0)
         np.testing.assert_allclose(
             np.einsum("injkl,jkl->in", jacobi_fd, d_states),
             self.solver.apply_forces_wrt_states_fwd(d_states),
             atol=1e-6, rtol=1e-5,
         )
         # testing bwd
-        d_forces = random_like(forces_0)
+        d_forces = self.random_like(forces_0)
         np.testing.assert_allclose(
             np.einsum("injkl,in->jkl", jacobi_fd, d_forces),
             self.solver.apply_forces_wrt_states_rev(d_forces),
@@ -296,14 +294,14 @@ class TestJacobi(unittest.TestCase):
                 atol=1e-6, rtol=1e-5,
             )
         # testing fwd
-        d_vertices = random_like(vertices_0)
+        d_vertices = self.random_like(vertices_0)
         np.testing.assert_allclose(
             np.einsum("injkl,jkl->in", jacobi_fd, d_vertices),
             self.solver.apply_forces_wrt_vertices_fwd(d_vertices),
             atol=1e-6, rtol=1e-5,
         )
         # testing rev
-        d_forces = random_like(forces_0)
+        d_forces = self.random_like(forces_0)
         np.testing.assert_allclose(
             np.einsum("injkl,in->jkl", jacobi_fd, d_forces),
             self.solver.apply_forces_wrt_vertices_rev(d_forces),
@@ -312,9 +310,9 @@ class TestJacobi(unittest.TestCase):
 
     def test_solve(self) -> None:
         """Check solutions for Jacobians of ``states`` wrt ``odes``"""
-        shift = rng.random() + rng.random() * 1j
+        shift = self.rng.random() + self.rng.random() * 1j
         # testing fwd
-        d_states = random_like(self.solver.states)
+        d_states = self.random_like(self.solver.states)
         np.testing.assert_allclose(
             self.solver.solve_odes_wrt_states_fwd(
                 d_odes=self.solver.apply_odes_wrt_states_fwd(
@@ -325,7 +323,7 @@ class TestJacobi(unittest.TestCase):
             d_states,
         )
         # testing adj
-        d_odes = random_like(self.solver.odes)
+        d_odes = self.random_like(self.solver.odes)
         np.testing.assert_allclose(
             self.solver.solve_odes_wrt_states_adj(
                 d_states=self.solver.apply_odes_wrt_states_rev(
