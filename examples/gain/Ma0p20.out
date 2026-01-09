@@ -1,0 +1,18 @@
+Mesh file:                ../grids/naca0012_129x129.plot3d
+Chord / L:                10.0
+Mach number:              0.2
+
+Pseudo-transient continuation:
+    it        residual    rel residual
+     0         1.5e+01         1.0e+00
+     1         4.3e+00         2.8e-01
+     2         6.0e-01         4.0e-02
+     3         8.4e-02         5.6e-03
+     4         4.6e-03         3.1e-04
+     5         2.4e-05         1.6e-06
+     6         2.3e-09         1.5e-10
+     7         3.9e-14         2.6e-15
+
+Lift coefficient derivatives:
+wrt pitch angle:                     7.0813 (1/rad)
+wrt pitch angle wrt Mach number:     1.5888 (1/rad)

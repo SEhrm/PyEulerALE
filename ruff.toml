@@ -1,0 +1,62 @@
+line-length = 100
+indent-width = 4
+
+[lint]
+select = [
+    "YTT", # flake8-2020
+    "ANN", # flake8-annotations
+    "BLE", # flake8-blind-except
+    "B", # flake8-bugbear
+    "A", # flake8-builtins
+    "COM", # flake8-commas
+    "C4", # flake8-comprehensions
+    "CPY", # flake8-copyright
+    "EM", # flake8-errmsg
+    "EXE", # flake8-executable
+    "FA", # flake8-future-annotations
+    "ISC", # flake8-implicit-str-concat
+    "ICN", # flake8-import-conventions
+    "INP", # flake8-no-pep420
+    "PIE", # flake8-pie
+    "Q", # flake8-quotes
+    "RSE", # flake8-raise
+    "RET", # flake8-return
+    "SLF", # flake8-self
+    "SIM", # flake8-simplify
+    "TID", # flake8-tidy-imports
+    "ARG", # flake8-unused-arguments
+    "PTH", # flake8-use-pathlib
+    "FLY", # flynt
+    "I", # isort
+    "NPY", # NumPy-specific rules
+    "N", # pep8-naming
+    "E", # Error
+    "W", # Warning
+    "DOC", # pydoclint
+    "D", # pydocstyle
+    "F", # Pyflakes
+    "PL", # Pylint
+    "PLC", # Convention
+    "PLE", # Error
+    "PLR", # Refactor
+    "PLW", # Warning
+    "UP", # pyupgrade
+    "RUF", # Ruff-specific rules
+    "TRY", # tryceratops
+]
+ignore = [
+    "RUF001", # ambiguous-unicode-character-string
+    "RUF002", # ambiguous-unicode-character-docstring
+    "RUF003", # ambiguous-unicode-character-comment
+    "D415", # missing-terminal-punctuation (in summary)
+    "RET504", # unnecessary-assign
+    "B008", # function-call-in-default-argument
+    "PLR0904", # too-many-public-methods
+]
+preview = true
+
+[lint.pydocstyle]
+convention = "google"
+
+[lint.isort]
+force-single-line = true

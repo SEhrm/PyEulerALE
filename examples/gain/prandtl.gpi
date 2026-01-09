@@ -1,0 +1,26 @@
+#!/usr/bin/env gnuplot
+
+set terminal png large size 800,600 fontscale 2 background rgb 'black'
+set output 'prandtl.png'
+set tics tc "white"
+set border lc "white"
+
+DATA = "< perl -ne '" . \
+    "if(/^Mach.+?(\\d\\S+)/){print\"$1 \"}" . \
+    "if(/^wrt pitch angle:\\s+(\\d\\S+)/){print\"$1 \"}" . \
+    "if(/^wrt pitch angle wrt Mach number:\\s+(\\d\\S+)/){print\"$1\\n\"}" . \
+    "' Ma*.out"
+
+set offsets graph 0., graph 0.01, graph 0., graph 0.
+set title "NACA-0012 pitching around leading-edge" tc "white"
+set ylabel "Pitch angle to coefficient of lift static gain" tc "white"
+set xlabel "Mach number" tc "white"
+unset key
+set grid xtics mxtics ytics mytics
+set xtics 0,0.1,1
+set mxtics 2
+
+STEP_SIZE = 0.02
+plot 0.0121/0.1*180/pi/sqrt(1-x**2) lc "cyan" lt 0, \
+    DATA u 1:2 with points pt 5 lc "web-blue", \
+    DATA u 1:2:(STEP_SIZE):(STEP_SIZE*$3) with vectors lc "web-blue"
