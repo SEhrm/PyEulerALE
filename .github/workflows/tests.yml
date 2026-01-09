@@ -1,0 +1,63 @@
+# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
+name: Tests
+
+on: [ push ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [ "3.10", "3.11", "3.12", "3.13" ]
+        numpy-version: [ "1.26.4", "latest" ]
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v3
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install
+        run: |
+          sudo apt install -yqqq gnuplot=5.4.2+dfsg2-2
+          python -m pip install --upgrade pip
+          python -m pip install ruff fortitude-lint
+          if [ "${{ matrix.numpy-version }}" = "latest" ]; then
+            pip install .
+          else
+            echo "Installing numpy==${{ matrix.numpy-version }}"
+            pip install numpy==${{ matrix.numpy-version }} .
+          fi
+      - name: Lint with ruff
+        run: |
+          ruff check
+      - name: Lint with fortitude
+        run: |
+          fortitude check
+      - name: Run unittests
+        run: |
+          python -m unittest discover tests/
+      - name: Check 'Response' example
+        working-directory: examples/response
+        run: |
+          python -u run.py ../grids/naca0004_129x129.plot3d 10. 0.05 0 | tee Ma0p05.out
+          git diff --exit-code Ma0p05.out
+          python -u run.py ../grids/naca0004_129x129.plot3d 10. 0.5 0 | tee Ma0p5.out
+          git diff --exit-code Ma0p5.out
+          ./bode.gpi
+          git diff --exit-code bode.png
+          ./sinusoidal.gpi
+          git diff --exit-code sinusoidal.gif
+      - name: Check 'Gain' example
+        working-directory: examples/gain
+        run: |
+          python -u run.py ../grids/naca0012_129x129.plot3d 10. 0.1 | tee Ma0p10.out
+          git diff --exit-code Ma0p10.out
+          python -u run.py ../grids/naca0012_129x129.plot3d 10. 0.5 | tee Ma0p50.out
+          git diff --exit-code Ma0p50.out
+          ./prandtl.gpi
+          git diff --exit-code prandtl.png

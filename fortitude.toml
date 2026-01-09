@@ -1,0 +1,13 @@
+[check]
+select = ['ALL']
+ignore = [
+    "implicit-external-procedures",
+    "literal-kind",
+    "literal-kind-suffix",
+    "function-missing-result",
+    "exit-or-cycle-in-unlabelled-loop",
+    "incorrect-space-before-comment",
+    "missing-default-case",
+]
+line-length = 100
+preview = true

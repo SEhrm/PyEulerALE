@@ -1,0 +1,52 @@
+#!/usr/bin/env gnuplot
+
+set terminal gif large size 1000,400 fontscale 2 background rgb 'black' animate delay 20
+set output 'sinusoidal.gif'
+
+do for [i=0:19] {
+# print "frame ", (i+1), "/20"
+
+t = i * 2*pi/20
+amp = 2*pi/180
+pitch = amp * cos(t)
+sinusoidal(steady, re, im) = steady + amp * (re**2 + im**2)**0.5 * cos(t + atan2(im, re))
+
+set y2label "Pressure coefficient" tc "white" offset graph 0.105
+set title "NACA-0004 pitching around leading-edge\n Mach number 0.5, amplitude 2deg, reduced frequency 1.0" tc "white" offset 0, 0.5
+set tics tc "white"
+set border lc "white"
+set palette maxcolors 100
+set palette defined (-1 "web-blue", 0 "black", 1 "light-red")
+
+set bmargin at screen 0.1
+set tmargin at screen 0.85
+set lmargin at screen 0.06
+set rmargin at screen 0.88
+set colorbox user origin graph 1.01, graph 0 size graph 0.04, graph 1
+
+set multiplot
+
+set view map
+set yrange [-0.3:.3]
+set xrange [-0.2:1.2]
+#set zrange [-0.4:0.4]
+set cbrange [-0.4:0.4]
+set xtics -1.,0.1,2.
+set ytics -1,0.1,1.
+set pm3d noborder
+splot "< gzip -dc Ma0p5.gz" u ($1/10):(($2 - $1 * sin(pitch))/10):(sinusoidal($3, $4, $5)) with polygons palette
+
+unset title
+unset ytics
+unset xtics
+unset ylabel
+unset key
+unset border
+naca(x) = 5*0.04 * (0.2969*x**0.5 - 0.1260*x - 0.3516*x**2 + 0.2843*x**3 - 0.1015*x**4)
+set samples 1000
+plot sample \
+    [0:1] naca(x) - x * sin(pitch) lc "white" lw 2, \
+    [0:1] -naca(x) - x * sin(pitch) lc "white" lw 2
+
+reset session
+}

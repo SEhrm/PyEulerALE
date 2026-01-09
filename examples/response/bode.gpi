@@ -1,0 +1,91 @@
+#!/usr/bin/env gnuplot
+
+set terminal png large size 800,600 fontscale 2 background rgb 'black'
+set output 'bode.png'
+set tics tc "white"
+set border lc "white"
+
+mag(re, im) = (re**2 + im**2)**0.5
+db(mag) = 20*log10(mag)
+phase(re, im) = atan2(im, re) * 180/pi
+
+set datafile separator ","
+DATA_0p05 = "< sed '1,/Frequency response/d' Ma0p05.out"
+DATA_0p5 = "< sed '1,/Frequency response/d' Ma0p5.out"
+REF_0 = "Ref_Ma0p0.csv"
+REF_0p5 = "Ref_Ma0p5.csv"
+
+set style line 1 pt 4 lc "cyan"
+set style line 2 pt 8 lc "magenta"
+set style line 3 pt 5 lc "web-blue"
+set style line 4 pt 9 lc "light-red"
+set style line 5 lc "white"
+set style increment user
+
+set multiplot layout 2,2 columnsfirst title "NACA-0004 pitching around leading-edge" tc "white"
+set offsets graph 0.02, graph 0.02, graph 0.2, graph 0.2
+set grid xtics mxtics ytics mytics
+set logscale x
+set mxtics 10
+
+set lmargin 8.
+set rmargin 0.
+set tmargin 3.5
+set bmargin .5
+set format x ""
+unset xlabel
+set title "Pitch angle to coefficient of lift" tc "white"
+set ylabel "Magnitude (dB)" tc "white"
+set key samplen 0.5 left top Left box ls 5 tc "white"
+#set yrange [12:18]
+set ytics 0,1,100
+set mytics 2
+plot REF_0 u 1:(db(mag($2, $3))) with points title "Jordan Ma=0", \
+    REF_0p5 u 1:(db(mag($2, $3))) with points title "Jordan Ma=0.5", \
+    DATA_0p05 u 1:(db(mag($2, $3))) '%lf %lf%lfj %lf%lfj' with points title "PyEulerALE Ma=0.05" , \
+    DATA_0p5 u 1:(db(mag($2, $3))) '%lf %lf%lfj %lf%lfj' with points title "PyEulerALE Ma=0.5"
+set key off
+
+set tmargin 0.
+set bmargin 4.
+set format x
+set title ""
+set ylabel "Phase (deg)" tc "white"
+set xlabel "Reduced frequency" tc "white"
+#set yrange [-15:110]
+set mytics 3
+set ytics -30,30,180
+plot REF_0 u 1:(phase($2, $3)) with points title "", \
+    REF_0p5 u 1:(phase($2, $3)) with points title "", \
+    DATA_0p05 u 1:(phase($2, $3)) '%lf %lf%lfj %lf%lfj' with points title "", \
+    DATA_0p5 u 1:(phase($2, $3)) '%lf %lf%lfj %lf%lfj' with points title ""
+
+set lmargin 5.
+set rmargin 3.
+set tmargin 3.5
+set bmargin .5
+set format x ""
+unset xlabel
+set title "Pitch angle to coefficient of moment"
+set ylabel ""
+#set yrange [1:12]
+set ytics 0,2,100
+set mytics 2
+plot REF_0 u 1:(db(mag($4, $5))) with points title "", \
+    REF_0p5 u 1:(db(mag($4, $5))) with points title "", \
+    DATA_0p05 u 1:(db(mag($4, $5))) '%lf %lf%lfj %lf%lfj' with points title "", \
+    DATA_0p5 u 1:(db(mag($4, $5))) '%lf %lf%lfj %lf%lfj' with points title ""
+
+set tmargin 0.
+set bmargin 4.
+set format x
+set title ""
+set ylabel ""
+set xlabel "Reduced frequency" tc "white"
+#set yrange [-15:110]
+set mytics 3
+set ytics -30,30,180
+plot REF_0 u 1:(phase(-$4, -$5)) with points title "", \
+    REF_0p5 u 1:(phase(-$4, -$5)) with points title "", \
+    DATA_0p05 u 1:(phase(-$4, -$5)) '%lf %lf%lfj %lf%lfj' with points title "", \
+    DATA_0p5 u 1:(phase(-$4, -$5)) '%lf %lf%lfj %lf%lfj' with points title ""

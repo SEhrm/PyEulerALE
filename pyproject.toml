@@ -1,0 +1,22 @@
+[build-system]
+requires = [
+    "numpy",
+    "meson-python",
+]
+build-backend = "mesonpy"
+
+[project]
+name = "py_euler_ale"
+description = "Finite volume discretization for the 2D compressible Euler equations around moving airfoils."
+version = "1.0.0"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.26.4",
+    "scipy>=1.15.3",
+]
+authors = [
+    { name = "Simon Ehrmanntraut" },
+]
+readme = "README.md"
+Repository = "https://github.com/SEhrm/PyEulerALE"
+Issues = "https://github.com/SEhrm/PyEulerALE/issues"
