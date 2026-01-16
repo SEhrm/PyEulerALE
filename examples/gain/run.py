@@ -101,7 +101,7 @@ states_wrt_mach = -solver.solve_odes_wrt_states_fwd(
 )
 
 # Compute adjoint state gradient
-lift_wrt_odes_adj = -solver.solve_odes_wrt_states_adj(
+lift_wrt_odes_gradient = -solver.solve_odes_wrt_states_adj(
     solver.apply_forces_wrt_states_rev(d_forces=lift_wrt_forces_adj),
 )
 
@@ -118,19 +118,19 @@ lift_wrt_aoa_wrt_mach = (
         ), states_wrt_mach,
     ) +
     solver.compute_odes_wrt_states_inner_product_wrt_mach(
-        d_odes=lift_wrt_odes_adj, d_states=states_wrt_aoa,
+        d_odes=lift_wrt_odes_gradient, d_states=states_wrt_aoa,
     ).item() +
     np.vdot(
         solver.compute_odes_wrt_states_inner_product_wrt_states(
-            d_odes=lift_wrt_odes_adj, d_states=states_wrt_mach,
+            d_odes=lift_wrt_odes_gradient, d_states=states_wrt_mach,
         ), states_wrt_aoa,
     ) +
     solver.compute_odes_wrt_vertices_inner_product_wrt_mach(
-        d_odes=lift_wrt_odes_adj, d_vertices=vertices_wrt_aoa,
+        d_odes=lift_wrt_odes_gradient, d_vertices=vertices_wrt_aoa,
     ).item() +
     np.vdot(
         solver.compute_odes_wrt_states_inner_product_wrt_vertices(
-            d_odes=lift_wrt_odes_adj, d_states=states_wrt_mach,
+            d_odes=lift_wrt_odes_gradient, d_states=states_wrt_mach,
         ), vertices_wrt_aoa,
     )
 )

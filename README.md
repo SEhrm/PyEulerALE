@@ -313,53 +313,53 @@ Simplifying and rearranging yields
 
 $$
 \begin{aligned}
-\frac{\mathrm{d}}{\mathrm{d}Ma_\infty}\left(
+\nabla_{Ma_\infty}\left(
 \left.\frac{ℒc_\text{l}}{ℒ\alpha}\right\vert_{s=0}
 \right) =
 &-2 Ma_\infty^{-1}\cdot\left.\frac{ℒc_\text{l}}{ℒ\alpha}\right\vert_{s=0}
 \\
 &+
-\left(
-\frac{\partial}{\partial𝓤}
 \left\langle
-\left( \frac{\partial c_\text{l}}{\partial𝓕} \right)^\dagger,
+\nabla_{𝓤}
+\left\langle
+\nabla_{𝓕}{c_\text{l}},
 \frac{\partial𝓕}{\partial𝓤}
 \left.\frac{ℒ𝓤}{ℒ\alpha}\right\vert_{s=0}
 \right\rangle +
-\frac{\partial}{\partial𝓤}
+\nabla_{𝓤}
 \left\langle
-\left( \frac{\partial c_\text{l}}{\partial𝓕} \right)^\dagger,
+\nabla_{𝓕}{c_\text{l}},
 \frac{\partial𝓕}{\partial𝓧}
 \frac{\mathrm{d}𝓧}{\mathrm{d}\alpha}
-\right\rangle
-\right)
+\right\rangle,
 \left.\frac{ℒ𝓤}{ℒMa_\infty}\right\vert_{s=0}
+\right\rangle
 \\
 &+
-\left(
-\frac{\partial}{\partial𝓤}
+\left\langle
+\nabla_{𝓤}
 \left\langle
 \check{𝓡},
 \frac{\partial𝓡}{\partial𝓤}
 \left.\frac{ℒ𝓤}{ℒ\alpha}\right\vert_{s=0}
 \right\rangle +
-\frac{\partial}{\partial𝓤}
+\nabla_{𝓤}
 \left\langle
 \check{𝓡},
 \frac{\partial𝓡}{\partial𝓧}
 \frac{\mathrm{d}𝓧}{\mathrm{d}\alpha}
-\right\rangle
-\right)
+\right\rangle,
 \left.\frac{ℒ𝓤}{ℒMa_\infty}\right\vert_{s=0}
+\right\rangle
 \\
 &+
-\frac{\partial}{\partial Ma_\infty}
+\nabla_{Ma_\infty}
 \left\langle
 \check{𝓡},
 \frac{\partial𝓡}{\partial𝓤}
 \left.\frac{ℒ𝓤}{ℒ\alpha}\right\vert_{s=0}
 \right\rangle +
-\frac{\partial}{\partial Ma_\infty}
+\nabla_{Ma_\infty}
 \left\langle
 \check{𝓡},
 \frac{\partial𝓡}{\partial𝓧}
@@ -371,7 +371,7 @@ $$
 where $\check{𝓡}:=
 -(\partial𝓡\textfractionsolidus\partial𝓤)^{-\dagger}
 (\partial𝓕\textfractionsolidus\partial𝓤)^\dagger
-(\partial c_\text{l}\textfractionsolidus\partial𝓕)^\dagger
+\nabla_{𝓕}c_\text{l}
 $.
 
 Running

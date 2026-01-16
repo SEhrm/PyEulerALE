@@ -695,24 +695,32 @@ class SpatialDiscretization:
         self,
         d_odes: np.ndarray,
         d_states: np.ndarray,
+        mach_gradient: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Computes ``odes`` wrt ``states`` inner-product wrt ``mach_number``.
+        """Computes ``odes`` wrt ``states`` inner-product gradient wrt ``mach_number``.
 
-        Computes the gradient `∂<δ𝓡,∂𝓡/∂𝓤⋅δ𝓤>/∂Maₒₒ`.
+        Computes the gradient `∇[Maₒₒ]<δ𝓡,∂𝓡/∂𝓤⋅δ𝓤>`.
 
         Args:
             d_odes: Covector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
                 array in shape ``(NUM_VAR,num_radial,num_angular)``.
             d_states: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
                 array in shape ``(NUM_VAR,num_radial,num_angular)``.
+            mach_gradient: Covector into which to store the gradient. Must be a complex
+                FORTRAN-contiguous array in shape ``(1)``. if not provided, a newly-allocated
+                array will be returned.
 
         Returns:
-            Gradient in shape ``(1)``.
+            Gradient.
         """
         self._check_array(d_states, self._states.shape)
         self._check_array(d_odes, self._odes.shape)
-        gradient = np.zeros((1,), dtype=complex)
-        vec_jac_product = np.zeros((1,), dtype=complex)
+        if mach_gradient is not None:
+            self._check_array(mach_gradient, (1,))
+            mach_gradient[:] = 0.
+        else:
+            mach_gradient = np.zeros((1,), dtype=complex)
+        vec_jac_product = np.zeros_like((1,), dtype=complex)
         odes_wrt_mach_pert = np.zeros_like(self._odes_wrt_mach)
         step = 1e-6 * (1. + np.linalg.norm(self._states))**0.5 / np.linalg.norm(d_states)
         for sign, (part, factor) in product((1., -1.), ((np.real, 1.), (np.imag, 1.j))):
@@ -722,31 +730,39 @@ class SpatialDiscretization:
             )
             disc.apply_odes_wrt_mach_rev(
                 odes_wrt_mach_pert, d_odes.conj(), vec_jac_product)
-            gradient += sign * factor * vec_jac_product
-        gradient = gradient / 2. / step
-        return gradient
+            mach_gradient += sign * factor * vec_jac_product
+        mach_gradient = mach_gradient / 2. / step
+        return mach_gradient
 
     def compute_odes_wrt_states_inner_product_wrt_states(
         self,
         d_odes: np.ndarray,
         d_states: np.ndarray,
+        states_gradient: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Computes ``odes`` wrt ``states`` inner-product wrt ``states``.
+        """Computes ``odes`` wrt ``states`` inner-product gradient wrt ``states``.
 
-        Computes the gradient `∂<δ𝓡,∂𝓡/∂𝓤⋅δ𝓤>/∂𝓤`.
+        Computes the gradient `∇[𝓤]<δ𝓡,∂𝓡/∂𝓤⋅δ𝓤>`.
 
         Args:
             d_odes: Covector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
                 array in shape ``(NUM_VAR,num_radial,num_angular)``.
             d_states: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
                 array in shape ``(NUM_VAR,num_radial,num_angular)``.
+            states_gradient: Covector into which to store the gradient. Must be a complex
+                FORTRAN-contiguous array in shape ``(NUM_VAR,num_radial,num_angular)``. if not
+                provided, a newly-allocated array will be returned.
 
         Returns:
-            Gradient in shape `(NUM_VAR,num_radial,num_angular)``.
+            Gradient.
         """
         self._check_array(d_states, self._states.shape)
         self._check_array(d_odes, self._odes.shape)
-        gradient = np.zeros_like(self._states)
+        if states_gradient is not None:
+            self._check_array(states_gradient, self._states.shape)
+            states_gradient[:] = 0.
+        else:
+            states_gradient = np.zeros_like(self._states)
         vec_jac_product = np.zeros_like(self._states)
         odes_wrt_states_pert = np.zeros_like(self._odes_wrt_states)
         step = 1e-6 * (1. + np.linalg.norm(self._states))**0.5 / np.linalg.norm(d_states)
@@ -757,31 +773,39 @@ class SpatialDiscretization:
             )
             disc.apply_odes_wrt_states_rev(
                 odes_wrt_states_pert, d_odes.conj(), vec_jac_product)
-            gradient += sign * factor * vec_jac_product
-        gradient = gradient / 2. / step
-        return gradient
+            states_gradient += sign * factor * vec_jac_product
+        states_gradient = states_gradient / 2. / step
+        return states_gradient
 
     def compute_odes_wrt_states_inner_product_wrt_vertices(
         self,
         d_odes: np.ndarray,
         d_states: np.ndarray,
+        vertices_gradient: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Computes ``odes`` wrt ``states`` inner-product wrt ``vertices``.
+        """Computes ``odes`` wrt ``states`` inner-product gradient wrt ``vertices``.
 
-        Computes the gradient `∂<δ𝓡,∂𝓡/∂𝓤⋅δ𝓤>/∂𝓧`.
+        Computes the gradient `∇[𝓧]<δ𝓡,∂𝓡/∂𝓤⋅δ𝓤>`.
 
         Args:
             d_odes: Covector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
                 array in shape ``(NUM_VAR,num_radial,num_angular)``.
             d_states: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
                 array in shape ``(NUM_VAR,num_radial,num_angular)``.
+            vertices_gradient: Covector into which to store the gradient. Must be a complex
+                FORTRAN-contiguous array in shape ``(NUM_DIM,num_radial+1,num_angular+1)``. if not
+                provided, a newly-allocated array will be returned.
 
         Returns:
-            Gradient in shape `(NUM_DIM,num_radial+1,num_angular+1)``.
+            Gradient.
         """
         self._check_array(d_states, self._states.shape)
         self._check_array(d_odes, self._odes.shape)
-        gradient = np.zeros_like(self._vertices)
+        if vertices_gradient is not None:
+            self._check_array(vertices_gradient, self._vertices.shape)
+            vertices_gradient[:] = 0.
+        else:
+            vertices_gradient = np.zeros_like(self._vertices)
         vec_jac_product = np.zeros_like(self._vertices)
         odes_wrt_vertices_pert = np.zeros_like(self._odes_wrt_vertices)
         step = 1e-6 * (1. + np.linalg.norm(self._states))**0.5 / np.linalg.norm(d_states)
@@ -792,31 +816,39 @@ class SpatialDiscretization:
             )
             disc.apply_odes_wrt_vertices_rev(
                 odes_wrt_vertices_pert, d_odes.conj(), vec_jac_product)
-            gradient += sign * factor * vec_jac_product
-        gradient = gradient / 2. / step
-        return gradient
+            vertices_gradient += sign * factor * vec_jac_product
+        vertices_gradient = vertices_gradient / 2. / step
+        return vertices_gradient
 
     def compute_odes_wrt_vertices_inner_product_wrt_mach(
         self,
         d_odes: np.ndarray,
         d_vertices: np.ndarray,
+        mach_gradient: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Computes ``odes`` wrt ``vertices`` inner-product wrt ``mach``.
+        """Computes ``odes`` wrt ``vertices`` inner-product gradient wrt ``mach``.
 
-        Computes the gradient `∂<δ𝓡,∂𝓡/∂𝓧⋅δ𝓧>/∂Maₒₒ`.
+        Computes the gradient `∇[Maₒₒ]<δ𝓡,∂𝓡/∂𝓧⋅δ𝓧>`.
 
         Args:
             d_odes: Covector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
                 array in shape ``(NUM_VAR,num_radial,num_angular)``.
             d_vertices: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
                 array in shape ``(NUM_DIM,num_radial+1,num_angular+1)``.
+            mach_gradient: Covector into which to store the gradient. Must be a complex
+                FORTRAN-contiguous array in shape ``(1)``. if not provided, a newly-allocated
+                array will be returned.
 
         Returns:
-            Gradient in shape `(1)``.
+            Gradient.
         """
         self._check_array(d_vertices, self._vertices.shape)
         self._check_array(d_odes, self._odes.shape)
-        gradient = np.zeros((1,), dtype=complex)
+        if mach_gradient is not None:
+            self._check_array(mach_gradient, (1,))
+            mach_gradient[:] = 0.
+        else:
+            mach_gradient = np.zeros((1,), dtype=complex)
         vec_jac_product = np.zeros((1,), dtype=complex)
         odes_wrt_mach_pert = np.zeros_like(self._odes_wrt_mach)
         step = 1e-6 * (1. + np.linalg.norm(self._vertices))**0.5 / np.linalg.norm(d_vertices)
@@ -827,31 +859,39 @@ class SpatialDiscretization:
             )
             disc.apply_odes_wrt_mach_rev(
                 odes_wrt_mach_pert, d_odes.conj(), vec_jac_product)
-            gradient += sign * factor * vec_jac_product
-        gradient = gradient / 2. / step
-        return gradient
+            mach_gradient += sign * factor * vec_jac_product
+        mach_gradient = mach_gradient / 2. / step
+        return mach_gradient
 
     def compute_odes_wrt_vertices_inner_product_wrt_states(
         self,
         d_odes: np.ndarray,
         d_vertices: np.ndarray,
+        states_gradient: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Computes ``odes`` wrt ``vertices`` inner-product wrt ``states``.
+        """Computes ``odes`` wrt ``vertices`` inner-product gradient wrt ``states``.
 
-        Computes the gradient `∂<δ𝓡,∂𝓡/∂𝓧⋅δ𝓧>/∂𝓤`.
+        Computes the gradient `∇[𝓤]<δ𝓡,∂𝓡/∂𝓧⋅δ𝓧>`.
 
         Args:
             d_odes: Covector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
                 array in shape ``(NUM_VAR,num_radial,num_angular)``.
             d_vertices: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
                 array in shape ``(NUM_DIM,num_radial+1,num_angular+1)``.
+            states_gradient: Covector into which to store the gradient. Must be a complex
+                FORTRAN-contiguous array in shape ``(NUM_VAR,num_radial,num_angular)``. if not
+                provided, a newly-allocated array will be returned.
 
         Returns:
-            Gradient in shape `(NUM_VAR,num_radial,num_angular)``.
+            Gradient.
         """
         self._check_array(d_vertices, self._vertices.shape)
         self._check_array(d_odes, self._odes.shape)
-        gradient = np.zeros_like(self._states)
+        if states_gradient is not None:
+            self._check_array(states_gradient, self._states.shape)
+            states_gradient[:] = 0.
+        else:
+            states_gradient = np.zeros_like(self._states)
         vec_jac_product = np.zeros_like(self._states)
         odes_wrt_states_pert = np.zeros_like(self._odes_wrt_states)
         step = 1e-6 * (1. + np.linalg.norm(self._vertices))**0.5 / np.linalg.norm(d_vertices)
@@ -862,31 +902,39 @@ class SpatialDiscretization:
             )
             disc.apply_odes_wrt_states_rev(
                 odes_wrt_states_pert, d_odes.conj(), vec_jac_product)
-            gradient += sign * factor * vec_jac_product
-        gradient = gradient / 2. / step
-        return gradient
+            states_gradient += sign * factor * vec_jac_product
+        states_gradient = states_gradient / 2. / step
+        return states_gradient
 
     def compute_odes_wrt_vertices_inner_product_wrt_vertices(
         self,
         d_odes: np.ndarray,
         d_vertices: np.ndarray,
+        vertices_gradient: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Computes ``odes`` wrt ``vertices`` inner-product wrt ``vertices``.
+        """Computes ``odes`` wrt ``vertices`` inner-product gradient wrt ``vertices``.
 
-        Computes the gradient `∂<δ𝓡,∂𝓡/∂𝓧⋅δ𝓧>/∂𝓧`.
+        Computes the gradient `∇[𝓧]<δ𝓡,∂𝓡/∂𝓧⋅δ𝓧>`.
 
         Args:
             d_odes: Covector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
                 array in shape ``(NUM_VAR,num_radial,num_angular)``.
             d_vertices: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
                 array in shape ``(NUM_DIM,num_radial+1,num_angular+1)``.
+            vertices_gradient: Covector into which to store the gradient. Must be a complex
+                FORTRAN-contiguous array in shape ``(NUM_DIM,num_radial+1,num_angular+1)``. if not
+                provided, a newly-allocated array will be returned.
 
         Returns:
-            Gradient in shape `(NUM_DIM,num_radial+1,num_angular+1)``.
+            Gradient.
         """
         self._check_array(d_vertices, self._vertices.shape)
         self._check_array(d_odes, self._odes.shape)
-        gradient = np.zeros_like(self._vertices)
+        if vertices_gradient is not None:
+            self._check_array(vertices_gradient, self._vertices.shape)
+            vertices_gradient[:] = 0.
+        else:
+            vertices_gradient = np.zeros_like(self._vertices)
         vec_jac_product = np.zeros_like(self._vertices)
         odes_wrt_vertices_pert = np.zeros_like(self._odes_wrt_vertices)
         step = 1e-6 * (1. + np.linalg.norm(self._vertices))**0.5 / np.linalg.norm(d_vertices)
@@ -897,31 +945,39 @@ class SpatialDiscretization:
             )
             disc.apply_odes_wrt_vertices_rev(
                 odes_wrt_vertices_pert, d_odes.conj(), vec_jac_product)
-            gradient += sign * factor * vec_jac_product
-        gradient = gradient / 2. / step
-        return gradient
+            vertices_gradient += sign * factor * vec_jac_product
+        vertices_gradient = vertices_gradient / 2. / step
+        return vertices_gradient
 
     def compute_odes_wrt_velocities_inner_product_wrt_mach(
         self,
         d_odes: np.ndarray,
         d_velocities: np.ndarray,
+        mach_gradient: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Computes ``odes`` wrt ``velocities`` inner-product wrt ``mach``.
+        """Computes ``odes`` wrt ``velocities`` inner-product gradient wrt ``mach``.
 
-        Computes the gradient `∂<δ𝓡,∂𝓡/∂𝓥⋅δ𝓥>/∂Maₒₒ`.
+        Computes the gradient `∇[Maₒₒ]<δ𝓡,∂𝓡/∂𝓥⋅δ𝓥>`.
 
         Args:
             d_odes: Covector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
                 array in shape ``(NUM_VAR,num_radial,num_angular)``.
             d_velocities: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
                 array in shape ``(NUM_DIM,num_radial+1,num_angular+1)``.
+            mach_gradient: Covector into which to store the gradient. Must be a complex
+                FORTRAN-contiguous array in shape ``(1)``. if not provided, a newly-allocated
+                array will be returned.
 
         Returns:
-            Gradient in shape `(1)``.
+            Gradient.
         """
         self._check_array(d_velocities, self._vertices.shape)
         self._check_array(d_odes, self._odes.shape)
-        gradient = np.zeros((1,), dtype=complex)
+        if mach_gradient is not None:
+            self._check_array(mach_gradient, (1,))
+            mach_gradient[:] = 0.
+        else:
+            mach_gradient = np.zeros((1,), dtype=complex)
         vec_jac_product = np.zeros((1,), dtype=complex)
         odes_wrt_mach_pert = np.zeros_like(self._odes_wrt_mach)
         step = 1e-6 * (1. + np.linalg.norm(self._velocities))**0.5 / np.linalg.norm(d_velocities)
@@ -932,31 +988,39 @@ class SpatialDiscretization:
             )
             disc.apply_odes_wrt_mach_rev(
                 odes_wrt_mach_pert, d_odes.conj(), vec_jac_product)
-            gradient += sign * factor * vec_jac_product
-        gradient = gradient / 2. / step
-        return gradient
+            mach_gradient += sign * factor * vec_jac_product
+        mach_gradient = mach_gradient / 2. / step
+        return mach_gradient
 
     def compute_odes_wrt_velocities_inner_product_wrt_states(
         self,
         d_odes: np.ndarray,
         d_velocities: np.ndarray,
+        states_gradient: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Computes ``odes`` wrt ``velocities`` inner-product wrt ``states``.
+        """Computes ``odes`` wrt ``velocities`` inner-product gradient wrt ``states``.
 
-        Computes the gradient `∂<δ𝓡,∂𝓡/∂𝓥⋅δ𝓥>/∂𝓤`.
+        Computes the gradient `∇[𝓤]<δ𝓡,∂𝓡/∂𝓥⋅δ𝓥>`.
 
         Args:
             d_odes: Covector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
                 array in shape ``(NUM_VAR,num_radial,num_angular)``.
             d_velocities: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
                 array in shape ``(NUM_DIM,num_radial+1,num_angular+1)``.
+            states_gradient: Covector into which to store the gradient. Must be a complex
+                FORTRAN-contiguous array in shape ``(NUM_VAR,num_radial,num_angular)``. if not
+                provided, a newly-allocated array will be returned.
 
         Returns:
-            Gradient in shape `(NUM_VAR,num_radial,num_angular)``.
+            Gradient.
         """
         self._check_array(d_velocities, self._vertices.shape)
         self._check_array(d_odes, self._odes.shape)
-        gradient = np.zeros_like(self._states)
+        if states_gradient is not None:
+            self._check_array(states_gradient, self._states.shape)
+            states_gradient[:] = 0.
+        else:
+            states_gradient = np.zeros_like(self._states)
         vec_jac_product = np.zeros_like(self._states)
         odes_wrt_states_pert = np.zeros_like(self._odes_wrt_states)
         step = 1e-6 * (1. + np.linalg.norm(self._velocities))**0.5 / np.linalg.norm(d_velocities)
@@ -967,31 +1031,39 @@ class SpatialDiscretization:
             )
             disc.apply_odes_wrt_states_rev(
                 odes_wrt_states_pert, d_odes.conj(), vec_jac_product)
-            gradient += sign * factor * vec_jac_product
-        gradient = gradient / 2. / step
-        return gradient
+            states_gradient += sign * factor * vec_jac_product
+        states_gradient = states_gradient / 2. / step
+        return states_gradient
 
     def compute_odes_wrt_velocities_inner_product_wrt_vertices(
         self,
         d_odes: np.ndarray,
         d_velocities: np.ndarray,
+        vertices_gradient: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Computes ``odes`` wrt ``velocities`` inner-product wrt ``vertices``.
+        """Computes ``odes`` wrt ``velocities`` inner-product gradient wrt ``vertices``.
 
-        Computes the gradient `∂<δ𝓡,∂𝓡/∂𝓥⋅δ𝓥>/∂𝓧`.
+        Computes the gradient `∇[𝓧]<δ𝓡,∂𝓡/∂𝓥⋅δ𝓥>`.
 
         Args:
             d_odes: Covector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
                 array in shape ``(NUM_VAR,num_radial,num_angular)``.
             d_velocities: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
                 array in shape ``(NUM_DIM,num_radial+1,num_angular+1)``.
+            vertices_gradient: Covector into which to store the gradient. Must be a complex
+                FORTRAN-contiguous array in shape ``(NUM_DIM,num_radial+1,num_angular+1)``. if not
+                provided, a newly-allocated array will be returned.
 
         Returns:
-            Gradient in shape `(NUM_DIM,num_radial+1,num_angular+1)``.
+            Gradient.
         """
         self._check_array(d_velocities, self._vertices.shape)
         self._check_array(d_odes, self._odes.shape)
-        gradient = np.zeros_like(self._vertices)
+        if vertices_gradient is not None:
+            self._check_array(vertices_gradient, self._vertices.shape)
+            vertices_gradient[:] = 0.
+        else:
+            vertices_gradient = np.zeros_like(self._vertices)
         vec_jac_product = np.zeros_like(self._vertices)
         odes_wrt_vertices_pert = np.zeros_like(self._odes_wrt_vertices)
         step = 1e-6 * (1. + np.linalg.norm(self._velocities))**0.5 / np.linalg.norm(d_velocities)
@@ -1002,31 +1074,39 @@ class SpatialDiscretization:
             )
             disc.apply_odes_wrt_vertices_rev(
                 odes_wrt_vertices_pert, d_odes.conj(), vec_jac_product)
-            gradient += sign * factor * vec_jac_product
-        gradient = gradient / 2. / step
-        return gradient
+            vertices_gradient += sign * factor * vec_jac_product
+        vertices_gradient = vertices_gradient / 2. / step
+        return vertices_gradient
 
     def compute_forces_wrt_states_inner_product_wrt_states(
         self,
         d_forces: np.ndarray,
         d_states: np.ndarray,
+        states_gradient: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Computes ``forces`` wrt ``states`` inner-product wrt ``states``.
+        """Computes ``forces`` wrt ``states`` inner-product gradient wrt ``states``.
 
-        Computes the gradient `∂<δ𝓕,∂𝓕/∂𝓤⋅δ𝓤>/∂𝓤`.
+        Computes the gradient `∇[𝓤]<δ𝓕,∂𝓕/∂𝓤⋅δ𝓤>`.
 
         Args:
             d_forces: Covector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
                 array in shape ``(NUM_DIM,num_angular)``.
             d_states: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
                 array in shape ``(NUM_VAR,num_radial,num_angular)``.
+            states_gradient: Covector into which to store the gradient. Must be a complex
+                FORTRAN-contiguous array in shape ``(NUM_VAR,num_radial,num_angular)``. if not
+                provided, a newly-allocated array will be returned.
 
         Returns:
-            Gradient in shape `(NUM_VAR,num_radial,num_angular)``.
+            Gradient.
         """
         self._check_array(d_states, self._states.shape)
         self._check_array(d_forces, self._forces.shape)
-        gradient = np.zeros_like(self._states)
+        if states_gradient is not None:
+            self._check_array(states_gradient, self._states.shape)
+            states_gradient[:] = 0.
+        else:
+            states_gradient = np.zeros_like(self._states)
         vec_jac_product = np.zeros_like(self._states)
         forces_wrt_states_pert = np.zeros_like(self._forces_wrt_states)
         step = 1e-6 * (1. + np.linalg.norm(self._states))**0.5 / np.linalg.norm(d_states)
@@ -1037,31 +1117,39 @@ class SpatialDiscretization:
             )
             disc.apply_forces_wrt_states_rev(
                 forces_wrt_states_pert, d_forces.conj(), vec_jac_product)
-            gradient += sign * factor * vec_jac_product
-        gradient = gradient / 2. / step
-        return gradient
+            states_gradient += sign * factor * vec_jac_product
+        states_gradient = states_gradient / 2. / step
+        return states_gradient
 
     def compute_forces_wrt_states_inner_product_wrt_vertices(
         self,
         d_forces: np.ndarray,
         d_states: np.ndarray,
+        vertices_gradient: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Computes ``forces`` wrt ``states`` inner-product wrt ``vertices``.
+        """Computes ``forces`` wrt ``states`` inner-product gradient wrt ``vertices``.
 
-        Computes the gradient `∂<δ𝓕,∂𝓕/∂𝓤⋅δ𝓤>/∂𝓧`.
+        Computes the gradient `∇[𝓧]<δ𝓕,∂𝓕/∂𝓤⋅δ𝓤>`.
 
         Args:
             d_forces: Covector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
                 array in shape ``(NUM_DIM,num_angular)``.
             d_states: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
                 array in shape ``(NUM_VAR,num_radial,num_angular)``.
+            vertices_gradient: Covector into which to store the gradient. Must be a complex
+                FORTRAN-contiguous array in shape ``(NUM_DIM,num_radial+1,num_angular+1)``. if not
+                provided, a newly-allocated array will be returned.
 
         Returns:
-            Gradient in shape `(NUM_DIM,num_radial+1,num_angular+1)``.
+            Gradient.
         """
         self._check_array(d_states, self._states.shape)
         self._check_array(d_forces, self._forces.shape)
-        gradient = np.zeros_like(self._vertices)
+        if vertices_gradient is not None:
+            self._check_array(vertices_gradient, self._vertices.shape)
+            vertices_gradient[:] = 0.
+        else:
+            vertices_gradient = np.zeros_like(self._vertices)
         vec_jac_product = np.zeros_like(self._vertices)
         forces_wrt_vertices_pert = np.zeros_like(self._forces_wrt_vertices)
         step = 1e-6 * (1. + np.linalg.norm(self._states))**0.5 / np.linalg.norm(d_states)
@@ -1072,31 +1160,39 @@ class SpatialDiscretization:
             )
             disc.apply_forces_wrt_vertices_rev(
                 forces_wrt_vertices_pert, d_forces.conj(), vec_jac_product)
-            gradient += sign * factor * vec_jac_product
-        gradient = gradient / 2. / step
-        return gradient
+            vertices_gradient += sign * factor * vec_jac_product
+        vertices_gradient = vertices_gradient / 2. / step
+        return vertices_gradient
 
     def compute_forces_wrt_vertices_inner_product_wrt_states(
         self,
         d_forces: np.ndarray,
         d_vertices: np.ndarray,
+        states_gradient: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Computes ``forces`` wrt ``vertices`` inner-product wrt ``states``.
+        """Computes ``forces`` wrt ``vertices`` inner-product gradient wrt ``states``.
 
-        Computes the gradient `∂<δ𝓕,∂𝓕/∂𝓧⋅δ𝓧>/∂𝓤`.
+        Computes the gradient `∇[𝓤]<δ𝓕,∂𝓕/∂𝓧⋅δ𝓧>`.
 
         Args:
             d_forces: Covector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
                 array in shape ``(NUM_DIM,num_angular)``.
             d_vertices: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
                 array in shape ``(NUM_DIM,num_radial+1,num_angular+1)``.
+            states_gradient: Covector into which to store the gradient. Must be a complex
+                FORTRAN-contiguous array in shape ``(NUM_VAR,num_radial,num_angular)``. if not
+                provided, a newly-allocated array will be returned.
 
         Returns:
-            Gradient in shape `(NUM_VAR,num_radial,num_angular)``.
+            Gradient.
         """
         self._check_array(d_vertices, self._vertices.shape)
         self._check_array(d_forces, self._forces.shape)
-        gradient = np.zeros_like(self._states)
+        if states_gradient is not None:
+            self._check_array(states_gradient, self._states.shape)
+            states_gradient[:] = 0.
+        else:
+            states_gradient = np.zeros_like(self._states)
         vec_jac_product = np.zeros_like(self._states)
         forces_wrt_states_pert = np.zeros_like(self._forces_wrt_states)
         step = 1e-6 * (1. + np.linalg.norm(self._vertices))**0.5 / np.linalg.norm(d_vertices)
@@ -1107,31 +1203,39 @@ class SpatialDiscretization:
             )
             disc.apply_forces_wrt_states_rev(
                 forces_wrt_states_pert, d_forces.conj(), vec_jac_product)
-            gradient += sign * factor * vec_jac_product
-        gradient = gradient / 2. / step
-        return gradient
+            states_gradient += sign * factor * vec_jac_product
+        states_gradient = states_gradient / 2. / step
+        return states_gradient
 
     def compute_forces_wrt_vertices_inner_product_wrt_vertices(
         self,
         d_forces: np.ndarray,
         d_vertices: np.ndarray,
+        vertices_gradient: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Computes ``forces`` wrt ``vertices`` inner-product wrt ``vertices``.
+        """Computes ``forces`` wrt ``vertices`` inner-product gradient wrt ``vertices``.
 
-        Computes the gradient `∂<δ𝓕,∂𝓕/∂𝓧⋅δ𝓧>/∂𝓧`.
+        Computes the gradient `∇[𝓧]<δ𝓕,∂𝓕/∂𝓧⋅δ𝓧>`.
 
         Args:
             d_forces: Covector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
                 array in shape ``(NUM_DIM,num_angular)``.
             d_vertices: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
                 array in shape ``(NUM_DIM,num_radial+1,num_angular+1)``.
+            vertices_gradient: Covector into which to store the gradient. Must be a complex
+                FORTRAN-contiguous array in shape ``(NUM_DIM,num_radial+1,num_angular+1)``. if not
+                provided, a newly-allocated array will be returned.
 
         Returns:
-            Gradient in shape `(NUM_DIM,num_radial+1,num_angular+1)``.
+            Gradient.
         """
         self._check_array(d_vertices, self._vertices.shape)
         self._check_array(d_forces, self._forces.shape)
-        gradient = np.zeros_like(self._vertices)
+        if vertices_gradient is not None:
+            self._check_array(vertices_gradient, self._vertices.shape)
+            vertices_gradient[:] = 0.
+        else:
+            vertices_gradient = np.zeros_like(self._vertices)
         vec_jac_product = np.zeros_like(self._vertices)
         forces_wrt_vertices_pert = np.zeros_like(self._forces_wrt_vertices)
         step = 1e-6 * (1. + np.linalg.norm(self._vertices))**0.5 / np.linalg.norm(d_vertices)
@@ -1142,6 +1246,6 @@ class SpatialDiscretization:
             )
             disc.apply_forces_wrt_vertices_rev(
                 forces_wrt_vertices_pert, d_forces.conj(), vec_jac_product)
-            gradient += sign * factor * vec_jac_product
-        gradient = gradient / 2. / step
-        return gradient
+            vertices_gradient += sign * factor * vec_jac_product
+        vertices_gradient = vertices_gradient / 2. / step
+        return vertices_gradient
