@@ -6,6 +6,7 @@ discretization.
 Copyright (C) 2025 Simon Ehrmanntraut - All Rights Reserved
 """
 
+from itertools import product
 from pathlib import Path
 
 import numpy as np
@@ -710,27 +711,20 @@ class SpatialDiscretization:
         """
         self._check_array(d_states, self._states.shape)
         self._check_array(d_odes, self._odes.shape)
-        gradient_real = np.zeros((1,), dtype=complex)
-        gradient_imag = np.zeros((1,), dtype=complex)
-        odes_wrt_mach_pert_real = np.zeros_like(self._odes_wrt_mach)
-        odes_wrt_mach_pert_imag = np.zeros_like(self._odes_wrt_mach)
-        disc.compute_odes_wrt_mach(
-            self._mach, self._vertices, self._velocities,
-            self._states + 1e-6 * d_states.real, odes_wrt_mach_pert_real,
-        )
-        disc.compute_odes_wrt_mach(
-            self._mach, self._vertices, self._velocities,
-            self._states + 1e-6 * d_states.imag, odes_wrt_mach_pert_imag,
-        )
-        disc.apply_odes_wrt_mach_rev(
-            odes_wrt_mach_pert_real - self._odes_wrt_mach,
-            d_odes.conj(), gradient_real,
-        )
-        disc.apply_odes_wrt_mach_rev(
-            odes_wrt_mach_pert_imag - self._odes_wrt_mach,
-            d_odes.conj(), gradient_imag,
-        )
-        return (gradient_real + gradient_imag * 1j) / 1e-6
+        gradient = np.zeros((1,), dtype=complex)
+        vec_jac_product = np.zeros((1,), dtype=complex)
+        odes_wrt_mach_pert = np.zeros_like(self._odes_wrt_mach)
+        step = 1e-6 * (1. + np.linalg.norm(self._states))**0.5 / np.linalg.norm(d_states)
+        for sign, (part, factor) in product((1., -1.), ((np.real, 1.), (np.imag, 1.j))):
+            disc.compute_odes_wrt_mach(
+                self._mach, self._vertices, self._velocities,
+                self._states + sign * step * part(d_states), odes_wrt_mach_pert,
+            )
+            disc.apply_odes_wrt_mach_rev(
+                odes_wrt_mach_pert, d_odes.conj(), vec_jac_product)
+            gradient += sign * factor * vec_jac_product
+        gradient = gradient / 2. / step
+        return gradient
 
     def compute_odes_wrt_states_inner_product_wrt_states(
         self,
@@ -752,27 +746,20 @@ class SpatialDiscretization:
         """
         self._check_array(d_states, self._states.shape)
         self._check_array(d_odes, self._odes.shape)
-        gradient_real = np.zeros_like(self._states)
-        gradient_imag = np.zeros_like(self._states)
-        odes_wrt_states_pert_real = np.zeros_like(self._odes_wrt_states)
-        odes_wrt_states_pert_imag = np.zeros_like(self._odes_wrt_states)
-        disc.compute_odes_wrt_states(
-            self._mach, self._vertices, self._velocities,
-            self._states + 1e-6 * d_states.real, odes_wrt_states_pert_real,
-        )
-        disc.compute_odes_wrt_states(
-            self._mach, self._vertices, self._velocities,
-            self._states + 1e-6 * d_states.imag, odes_wrt_states_pert_imag,
-        )
-        disc.apply_odes_wrt_states_rev(
-            odes_wrt_states_pert_real - self._odes_wrt_states,
-            d_odes.conj(), gradient_real,
-        )
-        disc.apply_odes_wrt_states_rev(
-            odes_wrt_states_pert_imag - self._odes_wrt_states,
-            d_odes.conj(), gradient_imag,
-        )
-        return (gradient_real + gradient_imag * 1j) / 1e-6
+        gradient = np.zeros_like(self._states)
+        vec_jac_product = np.zeros_like(self._states)
+        odes_wrt_states_pert = np.zeros_like(self._odes_wrt_states)
+        step = 1e-6 * (1. + np.linalg.norm(self._states))**0.5 / np.linalg.norm(d_states)
+        for sign, (part, factor) in product((1., -1.), ((np.real, 1.), (np.imag, 1.j))):
+            disc.compute_odes_wrt_states(
+                self._mach, self._vertices, self._velocities,
+                self._states + sign * step * part(d_states), odes_wrt_states_pert,
+            )
+            disc.apply_odes_wrt_states_rev(
+                odes_wrt_states_pert, d_odes.conj(), vec_jac_product)
+            gradient += sign * factor * vec_jac_product
+        gradient = gradient / 2. / step
+        return gradient
 
     def compute_odes_wrt_states_inner_product_wrt_vertices(
         self,
@@ -794,27 +781,20 @@ class SpatialDiscretization:
         """
         self._check_array(d_states, self._states.shape)
         self._check_array(d_odes, self._odes.shape)
-        gradient_real = np.zeros_like(self._vertices)
-        gradient_imag = np.zeros_like(self._vertices)
-        odes_wrt_vertices_pert_real = np.zeros_like(self._odes_wrt_vertices)
-        odes_wrt_vertices_pert_imag = np.zeros_like(self._odes_wrt_vertices)
-        disc.compute_odes_wrt_vertices(
-            self._mach, self._vertices, self._velocities,
-            self._states + 1e-6 * d_states.real, odes_wrt_vertices_pert_real,
-        )
-        disc.compute_odes_wrt_vertices(
-            self._mach, self._vertices, self._velocities,
-            self._states + 1e-6 * d_states.imag, odes_wrt_vertices_pert_imag,
-        )
-        disc.apply_odes_wrt_vertices_rev(
-            odes_wrt_vertices_pert_real - self._odes_wrt_vertices,
-            d_odes.conj(), gradient_real,
-        )
-        disc.apply_odes_wrt_vertices_rev(
-            odes_wrt_vertices_pert_imag - self._odes_wrt_vertices,
-            d_odes.conj(), gradient_imag,
-        )
-        return (gradient_real + gradient_imag * 1j) / 1e-6
+        gradient = np.zeros_like(self._vertices)
+        vec_jac_product = np.zeros_like(self._vertices)
+        odes_wrt_vertices_pert = np.zeros_like(self._odes_wrt_vertices)
+        step = 1e-6 * (1. + np.linalg.norm(self._states))**0.5 / np.linalg.norm(d_states)
+        for sign, (part, factor) in product((1., -1.), ((np.real, 1.), (np.imag, 1.j))):
+            disc.compute_odes_wrt_vertices(
+                self._mach, self._vertices, self._velocities,
+                self._states + sign * step * part(d_states), odes_wrt_vertices_pert,
+            )
+            disc.apply_odes_wrt_vertices_rev(
+                odes_wrt_vertices_pert, d_odes.conj(), vec_jac_product)
+            gradient += sign * factor * vec_jac_product
+        gradient = gradient / 2. / step
+        return gradient
 
     def compute_odes_wrt_vertices_inner_product_wrt_mach(
         self,
@@ -836,27 +816,20 @@ class SpatialDiscretization:
         """
         self._check_array(d_vertices, self._vertices.shape)
         self._check_array(d_odes, self._odes.shape)
-        gradient_real = np.zeros((1,), dtype=complex)
-        gradient_imag = np.zeros((1,), dtype=complex)
-        odes_wrt_mach_pert_real = np.zeros_like(self._odes_wrt_mach)
-        odes_wrt_mach_pert_imag = np.zeros_like(self._odes_wrt_mach)
-        disc.compute_odes_wrt_mach(
-            self._mach, self._vertices + 1e-6 * d_vertices.real, self._velocities,
-            self._states, odes_wrt_mach_pert_real,
-        )
-        disc.compute_odes_wrt_mach(
-            self._mach, self._vertices + 1e-6 * d_vertices.imag, self._velocities,
-            self._states, odes_wrt_mach_pert_imag,
-        )
-        disc.apply_odes_wrt_mach_rev(
-            odes_wrt_mach_pert_real - self._odes_wrt_mach,
-            d_odes.conj(), gradient_real,
-        )
-        disc.apply_odes_wrt_mach_rev(
-            odes_wrt_mach_pert_imag - self._odes_wrt_mach,
-            d_odes.conj(), gradient_imag,
-        )
-        return (gradient_real + gradient_imag * 1j) / 1e-6
+        gradient = np.zeros((1,), dtype=complex)
+        vec_jac_product = np.zeros((1,), dtype=complex)
+        odes_wrt_mach_pert = np.zeros_like(self._odes_wrt_mach)
+        step = 1e-6 * (1. + np.linalg.norm(self._vertices))**0.5 / np.linalg.norm(d_vertices)
+        for sign, (part, factor) in product((1., -1.), ((np.real, 1.), (np.imag, 1.j))):
+            disc.compute_odes_wrt_mach(
+                self._mach, self._vertices + sign * step * part(d_vertices), self._velocities,
+                self._states, odes_wrt_mach_pert,
+            )
+            disc.apply_odes_wrt_mach_rev(
+                odes_wrt_mach_pert, d_odes.conj(), vec_jac_product)
+            gradient += sign * factor * vec_jac_product
+        gradient = gradient / 2. / step
+        return gradient
 
     def compute_odes_wrt_vertices_inner_product_wrt_states(
         self,
@@ -878,27 +851,20 @@ class SpatialDiscretization:
         """
         self._check_array(d_vertices, self._vertices.shape)
         self._check_array(d_odes, self._odes.shape)
-        gradient_real = np.zeros_like(self._states)
-        gradient_imag = np.zeros_like(self._states)
-        odes_wrt_states_pert_real = np.zeros_like(self._odes_wrt_states)
-        odes_wrt_states_pert_imag = np.zeros_like(self._odes_wrt_states)
-        disc.compute_odes_wrt_states(
-            self._mach, self._vertices + 1e-6 * d_vertices.real, self._velocities,
-            self._states, odes_wrt_states_pert_real,
-        )
-        disc.compute_odes_wrt_states(
-            self._mach, self._vertices + 1e-6 * d_vertices.imag, self._velocities,
-            self._states, odes_wrt_states_pert_imag,
-        )
-        disc.apply_odes_wrt_states_rev(
-            odes_wrt_states_pert_real - self._odes_wrt_states,
-            d_odes.conj(), gradient_real,
-        )
-        disc.apply_odes_wrt_states_rev(
-            odes_wrt_states_pert_imag - self._odes_wrt_states,
-            d_odes.conj(), gradient_imag,
-        )
-        return (gradient_real + gradient_imag * 1j) / 1e-6
+        gradient = np.zeros_like(self._states)
+        vec_jac_product = np.zeros_like(self._states)
+        odes_wrt_states_pert = np.zeros_like(self._odes_wrt_states)
+        step = 1e-6 * (1. + np.linalg.norm(self._vertices))**0.5 / np.linalg.norm(d_vertices)
+        for sign, (part, factor) in product((1., -1.), ((np.real, 1.), (np.imag, 1.j))):
+            disc.compute_odes_wrt_states(
+                self._mach, self._vertices + sign * step * part(d_vertices), self._velocities,
+                self._states, odes_wrt_states_pert,
+            )
+            disc.apply_odes_wrt_states_rev(
+                odes_wrt_states_pert, d_odes.conj(), vec_jac_product)
+            gradient += sign * factor * vec_jac_product
+        gradient = gradient / 2. / step
+        return gradient
 
     def compute_odes_wrt_vertices_inner_product_wrt_vertices(
         self,
@@ -920,27 +886,20 @@ class SpatialDiscretization:
         """
         self._check_array(d_vertices, self._vertices.shape)
         self._check_array(d_odes, self._odes.shape)
-        gradient_real = np.zeros_like(self._vertices)
-        gradient_imag = np.zeros_like(self._vertices)
-        odes_wrt_vertices_pert_real = np.zeros_like(self._odes_wrt_vertices)
-        odes_wrt_vertices_pert_imag = np.zeros_like(self._odes_wrt_vertices)
-        disc.compute_odes_wrt_vertices(
-            self._mach, self._vertices + 1e-6 * d_vertices.real, self._velocities,
-            self._states, odes_wrt_vertices_pert_real,
-        )
-        disc.compute_odes_wrt_vertices(
-            self._mach, self._vertices + 1e-6 * d_vertices.imag, self._velocities,
-            self._states, odes_wrt_vertices_pert_imag,
-        )
-        disc.apply_odes_wrt_vertices_rev(
-            odes_wrt_vertices_pert_real - self._odes_wrt_vertices,
-            d_odes.conj(), gradient_real,
-        )
-        disc.apply_odes_wrt_vertices_rev(
-            odes_wrt_vertices_pert_imag - self._odes_wrt_vertices,
-            d_odes.conj(), gradient_imag,
-        )
-        return (gradient_real + gradient_imag * 1j) / 1e-6
+        gradient = np.zeros_like(self._vertices)
+        vec_jac_product = np.zeros_like(self._vertices)
+        odes_wrt_vertices_pert = np.zeros_like(self._odes_wrt_vertices)
+        step = 1e-6 * (1. + np.linalg.norm(self._vertices))**0.5 / np.linalg.norm(d_vertices)
+        for sign, (part, factor) in product((1., -1.), ((np.real, 1.), (np.imag, 1.j))):
+            disc.compute_odes_wrt_vertices(
+                self._mach, self._vertices + sign * step * part(d_vertices), self._velocities,
+                self._states, odes_wrt_vertices_pert,
+            )
+            disc.apply_odes_wrt_vertices_rev(
+                odes_wrt_vertices_pert, d_odes.conj(), vec_jac_product)
+            gradient += sign * factor * vec_jac_product
+        gradient = gradient / 2. / step
+        return gradient
 
     def compute_odes_wrt_velocities_inner_product_wrt_mach(
         self,
@@ -962,27 +921,20 @@ class SpatialDiscretization:
         """
         self._check_array(d_velocities, self._vertices.shape)
         self._check_array(d_odes, self._odes.shape)
-        gradient_real = np.zeros((1,), dtype=complex)
-        gradient_imag = np.zeros((1,), dtype=complex)
-        odes_wrt_mach_pert_real = np.zeros_like(self._odes_wrt_mach)
-        odes_wrt_mach_pert_imag = np.zeros_like(self._odes_wrt_mach)
-        disc.compute_odes_wrt_mach(
-            self._mach, self._vertices, self._velocities + 1e-6 * d_velocities.real,
-            self._states, odes_wrt_mach_pert_real,
-        )
-        disc.compute_odes_wrt_mach(
-            self._mach, self._vertices, self._velocities + 1e-6 * d_velocities.imag,
-            self._states, odes_wrt_mach_pert_imag,
-        )
-        disc.apply_odes_wrt_mach_rev(
-            odes_wrt_mach_pert_real - self._odes_wrt_mach,
-            d_odes.conj(), gradient_real,
-        )
-        disc.apply_odes_wrt_mach_rev(
-            odes_wrt_mach_pert_imag - self._odes_wrt_mach,
-            d_odes.conj(), gradient_imag,
-        )
-        return (gradient_real + gradient_imag * 1j) / 1e-6
+        gradient = np.zeros((1,), dtype=complex)
+        vec_jac_product = np.zeros((1,), dtype=complex)
+        odes_wrt_mach_pert = np.zeros_like(self._odes_wrt_mach)
+        step = 1e-6 * (1. + np.linalg.norm(self._velocities))**0.5 / np.linalg.norm(d_velocities)
+        for sign, (part, factor) in product((1., -1.), ((np.real, 1.), (np.imag, 1.j))):
+            disc.compute_odes_wrt_mach(
+                self._mach, self._vertices, self._velocities + sign * step * part(d_velocities),
+                self._states, odes_wrt_mach_pert,
+            )
+            disc.apply_odes_wrt_mach_rev(
+                odes_wrt_mach_pert, d_odes.conj(), vec_jac_product)
+            gradient += sign * factor * vec_jac_product
+        gradient = gradient / 2. / step
+        return gradient
 
     def compute_odes_wrt_velocities_inner_product_wrt_states(
         self,
@@ -1004,27 +956,20 @@ class SpatialDiscretization:
         """
         self._check_array(d_velocities, self._vertices.shape)
         self._check_array(d_odes, self._odes.shape)
-        gradient_real = np.zeros_like(self._states)
-        gradient_imag = np.zeros_like(self._states)
-        odes_wrt_states_pert_real = np.zeros_like(self._odes_wrt_states)
-        odes_wrt_states_pert_imag = np.zeros_like(self._odes_wrt_states)
-        disc.compute_odes_wrt_states(
-            self._mach, self._vertices, self._velocities + 1e-6 * d_velocities.real,
-            self._states, odes_wrt_states_pert_real,
-        )
-        disc.compute_odes_wrt_states(
-            self._mach, self._vertices, self._velocities + 1e-6 * d_velocities.imag,
-            self._states, odes_wrt_states_pert_imag,
-        )
-        disc.apply_odes_wrt_states_rev(
-            odes_wrt_states_pert_real - self._odes_wrt_states,
-            d_odes.conj(), gradient_real,
-        )
-        disc.apply_odes_wrt_states_rev(
-            odes_wrt_states_pert_imag - self._odes_wrt_states,
-            d_odes.conj(), gradient_imag,
-        )
-        return (gradient_real + gradient_imag * 1j) / 1e-6
+        gradient = np.zeros_like(self._states)
+        vec_jac_product = np.zeros_like(self._states)
+        odes_wrt_states_pert = np.zeros_like(self._odes_wrt_states)
+        step = 1e-6 * (1. + np.linalg.norm(self._velocities))**0.5 / np.linalg.norm(d_velocities)
+        for sign, (part, factor) in product((1., -1.), ((np.real, 1.), (np.imag, 1.j))):
+            disc.compute_odes_wrt_states(
+                self._mach, self._vertices, self._velocities + sign * step * part(d_velocities),
+                self._states, odes_wrt_states_pert,
+            )
+            disc.apply_odes_wrt_states_rev(
+                odes_wrt_states_pert, d_odes.conj(), vec_jac_product)
+            gradient += sign * factor * vec_jac_product
+        gradient = gradient / 2. / step
+        return gradient
 
     def compute_odes_wrt_velocities_inner_product_wrt_vertices(
         self,
@@ -1046,27 +991,20 @@ class SpatialDiscretization:
         """
         self._check_array(d_velocities, self._vertices.shape)
         self._check_array(d_odes, self._odes.shape)
-        gradient_real = np.zeros_like(self._vertices)
-        gradient_imag = np.zeros_like(self._vertices)
-        odes_wrt_vertices_pert_real = np.zeros_like(self._odes_wrt_vertices)
-        odes_wrt_vertices_pert_imag = np.zeros_like(self._odes_wrt_vertices)
-        disc.compute_odes_wrt_vertices(
-            self._mach, self._vertices, self._velocities + 1e-6 * d_velocities.real,
-            self._states, odes_wrt_vertices_pert_real,
-        )
-        disc.compute_odes_wrt_vertices(
-            self._mach, self._vertices, self._velocities + 1e-6 * d_velocities.imag,
-            self._states, odes_wrt_vertices_pert_imag,
-        )
-        disc.apply_odes_wrt_vertices_rev(
-            odes_wrt_vertices_pert_real - self._odes_wrt_vertices,
-            d_odes.conj(), gradient_real,
-        )
-        disc.apply_odes_wrt_vertices_rev(
-            odes_wrt_vertices_pert_imag - self._odes_wrt_vertices,
-            d_odes.conj(), gradient_imag,
-        )
-        return (gradient_real + gradient_imag * 1j) / 1e-6
+        gradient = np.zeros_like(self._vertices)
+        vec_jac_product = np.zeros_like(self._vertices)
+        odes_wrt_vertices_pert = np.zeros_like(self._odes_wrt_vertices)
+        step = 1e-6 * (1. + np.linalg.norm(self._velocities))**0.5 / np.linalg.norm(d_velocities)
+        for sign, (part, factor) in product((1., -1.), ((np.real, 1.), (np.imag, 1.j))):
+            disc.compute_odes_wrt_vertices(
+                self._mach, self._vertices, self._velocities + sign * step * part(d_velocities),
+                self._states, odes_wrt_vertices_pert,
+            )
+            disc.apply_odes_wrt_vertices_rev(
+                odes_wrt_vertices_pert, d_odes.conj(), vec_jac_product)
+            gradient += sign * factor * vec_jac_product
+        gradient = gradient / 2. / step
+        return gradient
 
     def compute_forces_wrt_states_inner_product_wrt_states(
         self,
@@ -1088,25 +1026,20 @@ class SpatialDiscretization:
         """
         self._check_array(d_states, self._states.shape)
         self._check_array(d_forces, self._forces.shape)
-        gradient_real = np.zeros_like(self._states)
-        gradient_imag = np.zeros_like(self._states)
-        forces_wrt_states_pert_real = np.zeros_like(self._forces_wrt_states)
-        forces_wrt_states_pert_imag = np.zeros_like(self._forces_wrt_states)
-        disc.compute_forces_wrt_states(
-            self._vertices, self._states + 1e-6 * d_states.real, forces_wrt_states_pert_real,
-        )
-        disc.compute_forces_wrt_states(
-            self._vertices, self._states + 1e-6 * d_states.imag, forces_wrt_states_pert_imag,
-        )
-        disc.apply_forces_wrt_states_rev(
-            forces_wrt_states_pert_real - self._forces_wrt_states,
-            d_forces.conj(), gradient_real,
-        )
-        disc.apply_forces_wrt_states_rev(
-            forces_wrt_states_pert_imag - self._forces_wrt_states,
-            d_forces.conj(), gradient_imag,
-        )
-        return (gradient_real + gradient_imag * 1j) / 1e-6
+        gradient = np.zeros_like(self._states)
+        vec_jac_product = np.zeros_like(self._states)
+        forces_wrt_states_pert = np.zeros_like(self._forces_wrt_states)
+        step = 1e-6 * (1. + np.linalg.norm(self._states))**0.5 / np.linalg.norm(d_states)
+        for sign, (part, factor) in product((1., -1.), ((np.real, 1.), (np.imag, 1.j))):
+            disc.compute_forces_wrt_states(
+                self._vertices, self._states + sign * step * part(d_states),
+                forces_wrt_states_pert,
+            )
+            disc.apply_forces_wrt_states_rev(
+                forces_wrt_states_pert, d_forces.conj(), vec_jac_product)
+            gradient += sign * factor * vec_jac_product
+        gradient = gradient / 2. / step
+        return gradient
 
     def compute_forces_wrt_states_inner_product_wrt_vertices(
         self,
@@ -1128,25 +1061,20 @@ class SpatialDiscretization:
         """
         self._check_array(d_states, self._states.shape)
         self._check_array(d_forces, self._forces.shape)
-        gradient_real = np.zeros_like(self._vertices)
-        gradient_imag = np.zeros_like(self._vertices)
-        forces_wrt_vertices_pert_real = np.zeros_like(self._forces_wrt_vertices)
-        forces_wrt_vertices_pert_imag = np.zeros_like(self._forces_wrt_vertices)
-        disc.compute_forces_wrt_vertices(
-            self._vertices, self._states + 1e-6 * d_states.real, forces_wrt_vertices_pert_real,
-        )
-        disc.compute_forces_wrt_vertices(
-            self._vertices, self._states + 1e-6 * d_states.imag, forces_wrt_vertices_pert_imag,
-        )
-        disc.apply_forces_wrt_vertices_rev(
-            forces_wrt_vertices_pert_real - self._forces_wrt_vertices,
-            d_forces.conj(), gradient_real,
-        )
-        disc.apply_forces_wrt_vertices_rev(
-            forces_wrt_vertices_pert_imag - self._forces_wrt_vertices,
-            d_forces.conj(), gradient_imag,
-        )
-        return (gradient_real + gradient_imag * 1j) / 1e-6
+        gradient = np.zeros_like(self._vertices)
+        vec_jac_product = np.zeros_like(self._vertices)
+        forces_wrt_vertices_pert = np.zeros_like(self._forces_wrt_vertices)
+        step = 1e-6 * (1. + np.linalg.norm(self._states))**0.5 / np.linalg.norm(d_states)
+        for sign, (part, factor) in product((1., -1.), ((np.real, 1.), (np.imag, 1.j))):
+            disc.compute_forces_wrt_vertices(
+                self._vertices, self._states + sign * step * part(d_states),
+                forces_wrt_vertices_pert,
+            )
+            disc.apply_forces_wrt_vertices_rev(
+                forces_wrt_vertices_pert, d_forces.conj(), vec_jac_product)
+            gradient += sign * factor * vec_jac_product
+        gradient = gradient / 2. / step
+        return gradient
 
     def compute_forces_wrt_vertices_inner_product_wrt_states(
         self,
@@ -1168,25 +1096,20 @@ class SpatialDiscretization:
         """
         self._check_array(d_vertices, self._vertices.shape)
         self._check_array(d_forces, self._forces.shape)
-        gradient_real = np.zeros_like(self._states)
-        gradient_imag = np.zeros_like(self._states)
-        forces_wrt_states_pert_real = np.zeros_like(self._forces_wrt_states)
-        forces_wrt_states_pert_imag = np.zeros_like(self._forces_wrt_states)
-        disc.compute_forces_wrt_states(
-            self._vertices + 1e-6 * d_vertices.real, self._states, forces_wrt_states_pert_real,
-        )
-        disc.compute_forces_wrt_states(
-            self._vertices + 1e-6 * d_vertices.imag, self._states, forces_wrt_states_pert_imag,
-        )
-        disc.apply_forces_wrt_states_rev(
-            forces_wrt_states_pert_real - self._forces_wrt_states,
-            d_forces.conj(), gradient_real,
-        )
-        disc.apply_forces_wrt_states_rev(
-            forces_wrt_states_pert_imag - self._forces_wrt_states,
-            d_forces.conj(), gradient_imag,
-        )
-        return (gradient_real + gradient_imag * 1j) / 1e-6
+        gradient = np.zeros_like(self._states)
+        vec_jac_product = np.zeros_like(self._states)
+        forces_wrt_states_pert = np.zeros_like(self._forces_wrt_states)
+        step = 1e-6 * (1. + np.linalg.norm(self._vertices))**0.5 / np.linalg.norm(d_vertices)
+        for sign, (part, factor) in product((1., -1.), ((np.real, 1.), (np.imag, 1.j))):
+            disc.compute_forces_wrt_states(
+                self._vertices + sign * step * part(d_vertices), self._states,
+                forces_wrt_states_pert,
+            )
+            disc.apply_forces_wrt_states_rev(
+                forces_wrt_states_pert, d_forces.conj(), vec_jac_product)
+            gradient += sign * factor * vec_jac_product
+        gradient = gradient / 2. / step
+        return gradient
 
     def compute_forces_wrt_vertices_inner_product_wrt_vertices(
         self,
@@ -1208,22 +1131,17 @@ class SpatialDiscretization:
         """
         self._check_array(d_vertices, self._vertices.shape)
         self._check_array(d_forces, self._forces.shape)
-        gradient_real = np.zeros_like(self._vertices)
-        gradient_imag = np.zeros_like(self._vertices)
-        forces_wrt_vertices_pert_real = np.zeros_like(self._forces_wrt_vertices)
-        forces_wrt_vertices_pert_imag = np.zeros_like(self._forces_wrt_vertices)
-        disc.compute_forces_wrt_vertices(
-            self._vertices + 1e-6 * d_vertices.real, self._states, forces_wrt_vertices_pert_real,
-        )
-        disc.compute_forces_wrt_vertices(
-            self._vertices + 1e-6 * d_vertices.imag, self._states, forces_wrt_vertices_pert_imag,
-        )
-        disc.apply_forces_wrt_vertices_rev(
-            forces_wrt_vertices_pert_real - self._forces_wrt_vertices,
-            d_forces.conj(), gradient_real,
-        )
-        disc.apply_forces_wrt_vertices_rev(
-            forces_wrt_vertices_pert_imag - self._forces_wrt_vertices,
-            d_forces.conj(), gradient_imag,
-        )
-        return (gradient_real + gradient_imag * 1j) / 1e-6
+        gradient = np.zeros_like(self._vertices)
+        vec_jac_product = np.zeros_like(self._vertices)
+        forces_wrt_vertices_pert = np.zeros_like(self._forces_wrt_vertices)
+        step = 1e-6 * (1. + np.linalg.norm(self._vertices))**0.5 / np.linalg.norm(d_vertices)
+        for sign, (part, factor) in product((1., -1.), ((np.real, 1.), (np.imag, 1.j))):
+            disc.compute_forces_wrt_vertices(
+                self._vertices + sign * step * part(d_vertices), self._states,
+                forces_wrt_vertices_pert,
+            )
+            disc.apply_forces_wrt_vertices_rev(
+                forces_wrt_vertices_pert, d_forces.conj(), vec_jac_product)
+            gradient += sign * factor * vec_jac_product
+        gradient = gradient / 2. / step
+        return gradient
