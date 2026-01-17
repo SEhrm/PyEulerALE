@@ -60,7 +60,9 @@ module spatial_discretization
   integer, parameter :: num_force_wrt_vertex = 2 !>@brief Num of vertices a face's force depend on
 
   ! To be set through python before calling the procedures
-  real(8), public :: aoa       !>@brief Free-stream angle-of-attack in degrees `α`
+  real(8), public :: aoa              !>@brief Free-stream angle-of-attack in degrees `α`
+  real(8), public :: k_2 = 1._8 / 2   !>@brief 2nd-order artificial dissipation coefficient `k⁽²⁾`
+  real(8), public :: k_4 = 1._8 / 128 !>@brief 4th-order artificial dissipation coefficient `k⁽⁴⁾`
 
   public set_free_stream_state
   public compute_odes
@@ -194,8 +196,6 @@ contains
     flux = make_physical_flux((state_l + state_r) / 2, normal)
     if (present(state_ll) .and. present(state_rr)) then
       associate (&
-        k_2 => 1._8 / 2, &
-        k_4 => 1._8 / 128, &
         wave_integral_l => get_wave_integral(state_l, normal), &
         wave_integral_r => get_wave_integral(state_r, normal), &
         p_ll => get_pressure(state_ll), &

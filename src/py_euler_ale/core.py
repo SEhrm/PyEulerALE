@@ -35,6 +35,8 @@ class SpatialDiscretization:
     arrays, call an instance method to process the array, and to read the updated array again.
     """
 
+    _k_2: float
+    _k_4: float
     _mach: complex
     _aoa: float
     _num_radial: int
@@ -56,6 +58,8 @@ class SpatialDiscretization:
         grid_file: str | Path,
         angle_of_attack: float = 1.25,
         mach_number: float = 0.5,
+        k_2: float = 1. / 2.,
+        k_4: float = 1. / 128.,
     ) -> None:
         """Initialize the discretization
 
@@ -65,9 +69,12 @@ class SpatialDiscretization:
             angle_of_attack: Far-field angle of attack in degree.
             mach_number: Free-stream Mach number. The scheme is unlikely to produce reliable results
                 for shocks in the sonic regine.
+            k_2: 2nd-order artificial dissipation coefficient.
+            k_4: 4th-order artificial dissipation coefficient.
         """
         self.mach_number = mach_number
         self.angle_of_attack = angle_of_attack
+        self._k_2, self._k_4 = k_2, k_4
         self._vertices = self._read_grid(grid_file)
         self._num_radial = self._vertices.shape[1] - 1
         self._num_angular = self._vertices.shape[2] - 1
@@ -223,7 +230,9 @@ class SpatialDiscretization:
 
     def _configure_disc(self) -> None:
         """Configures the discretization with current parameters"""
-        disc.aoa[...] = self.angle_of_attack
+        disc.aoa[...] = self._aoa
+        disc.k_2[...] = self._k_2
+        disc.k_4[...] = self._k_4
 
     def compute_odes(self) -> None:
         """Computes the states' rate of change (ODE)
