@@ -100,8 +100,7 @@ class SpatialDiscretization:
             NUM_DIM, NUM_VAR, self.num_angular)))
         self._forces_wrt_vertices = np.asfortranarray(np.zeros(dtype=float, shape=(
             NUM_DIM, NUM_DIM, self.num_angular, 2)))
-        self._configure_disc()
-        disc.set_free_stream_state(self.mach_number, self._states)
+        self.set_free_stream_state()
 
     @property
     def mach_number(self) -> float:
@@ -237,6 +236,11 @@ class SpatialDiscretization:
         disc.jst_k2[...] = self._k2
         disc.jst_k4[...] = self._k4
         disc.jst_c4[...] = self._c4
+
+    def set_free_stream_state(self) -> None:
+        """Sets ``states`` to free-stream"""
+        self._configure_disc()
+        disc.set_free_stream_state(self.mach_number, self._states)
 
     def compute_odes(self) -> None:
         """Computes the states' rate of change (ODE)

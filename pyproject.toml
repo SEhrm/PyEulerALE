@@ -8,7 +8,7 @@ build-backend = "mesonpy"
 [project]
 name = "py_euler_ale"
 description = "Finite volume discretization for the 2D compressible Euler equations around moving airfoils."
-version = "1.1.0"
+version = "1.1.1"
 requires-python = ">=3.10"
 dependencies = [
     "numpy>=1.26.4",
