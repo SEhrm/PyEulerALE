@@ -11,16 +11,29 @@ DATA = "< perl -ne '" . \
     "if(/^wrt pitch angle wrt Mach number:\\s+(\\d\\S+)/){print\"$1\\n\"}" . \
     "' Ma*.out"
 
+$REF << EOD
+     mach  cl_wrt_aoa
+     0.10        6.97
+     0.15        7.02
+     0.20        7.10
+     0.25        7.21
+     0.30        7.36
+     0.35        7.53
+     0.40        7.75
+     0.45        8.02
+     0.50        8.35
+EOD
+
 set offsets graph 0., graph 0.01, graph 0., graph 0.
 set title "NACA-0012 pitching around leading-edge" tc "white"
+set key samplen 0.5 left top Left box lc "white" tc "white"
 set ylabel "Pitch angle to coefficient of lift static gain" tc "white"
 set xlabel "Mach number" tc "white"
-unset key
 set grid xtics mxtics ytics mytics
 set xtics 0,0.1,1
 set mxtics 2
 
 STEP_SIZE = 0.02
-plot 0.0121/0.1*180/pi/sqrt(1-x**2) lc "cyan" lt 0, \
-    DATA u 1:2 with points pt 5 lc "web-blue", \
-    DATA u 1:2:(STEP_SIZE):(STEP_SIZE*$3) with vectors lc "web-blue"
+plot DATA u 1:2 with points pt 5 lc "web-blue" title "PyEulerALE", \
+    DATA u 1:2:(STEP_SIZE):(STEP_SIZE*$3) with vectors lc "web-blue" notitle, \
+    $REF u 1:2 pt 4 lc "cyan" title "XFOIL"

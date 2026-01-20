@@ -52,6 +52,8 @@ ignore = [
     "RET504", # unnecessary-assign
     "B008", # function-call-in-default-argument
     "PLR0904", # too-many-public-methods
+    "PLR0913", # too-many-arguments
+    "PLR0917", # too-many-positional-arguments
 ]
 preview = true
 

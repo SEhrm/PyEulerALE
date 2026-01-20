@@ -18,7 +18,7 @@ parser.add_argument("mesh_file", type=str, help="Mesh file.")
 parser.add_argument("chord", type=float, help="Chord length (in grid units).")
 parser.add_argument("mach_number", type=float, help="Free-stream Mach number.")
 parser.add_argument(
-    "--rtol", type=float, default=1e-10,
+    "--rtol", type=float, default=1e-9,
     help="Residual tolerance to reach relative to free-stream residual. (default: %(default)s)")
 parser.add_argument(
     "--iter", type=int, default=100,

@@ -60,9 +60,10 @@ module spatial_discretization
   integer, parameter :: num_force_wrt_vertex = 2 !>@brief Num of vertices a face's force depend on
 
   ! To be set through python before calling the procedures
-  real(8), public :: aoa              !>@brief Free-stream angle-of-attack in degrees `α`
-  real(8), public :: k_2 = 1._8 / 2   !>@brief 2nd-order artificial dissipation coefficient `k⁽²⁾`
-  real(8), public :: k_4 = 1._8 / 128 !>@brief 4th-order artificial dissipation coefficient `k⁽⁴⁾`
+  real(8), public :: aoa                !>@brief Free-stream angle-of-attack in degrees `α`
+  real(8), public :: jst_k2 = 1._8      !>@brief JST artificial dissipation constant `κ₂`
+  real(8), public :: jst_k4 = 1._8 / 32 !>@brief JST artificial dissipation constant `κ₄`
+  real(8), public :: jst_c4 = 2._8      !>@brief JST artificial dissipation constant `c₄`
 
   public set_free_stream_state
   public compute_odes
@@ -191,25 +192,27 @@ contains
     complex(8), intent(in), dimension(num_var) :: state_l(num_var), state_r(num_var)
     complex(8), intent(in), dimension(num_dim) :: normal(num_dim), grid_velo(num_dim)
     complex(8) :: flux(num_var)
-    complex(8) :: lambda, sensor_l, sensor_r, epsilon_2, epsilon_4
-    ! Blazek (Sec. 4.3.1.)
-    flux = make_physical_flux((state_l + state_r) / 2, normal)
+    complex(8) :: spectral_radius, sensor, coef_2, coef_4
+    ! Jameson DOI:10.2514/1.J055493
+    flux = (make_physical_flux(state_l, normal) + make_physical_flux(state_r, normal)) / 2
     if (present(state_ll) .and. present(state_rr)) then
       associate (&
-        wave_integral_l => get_wave_integral(state_l, normal), &
-        wave_integral_r => get_wave_integral(state_r, normal), &
+        spectral_radius_l => get_wave_integral(state_l, normal), &
+        spectral_radius_r => get_wave_integral(state_r, normal), &
         p_ll => get_pressure(state_ll), &
         p_l => get_pressure(state_l), &
         p_r => get_pressure(state_r), &
         p_rr => get_pressure(state_rr) &
         )
-        lambda = (wave_integral_l + wave_integral_r) / 2
-        sensor_l = abs_c(p_ll - 2 * p_l + p_r) / (p_ll + 2 * p_l + p_r)
-        sensor_r = abs_c(p_l - 2 * p_r + p_rr) / (p_l + 2 * p_r + p_rr)
-        epsilon_2 = k_2 * max_c(sensor_l, sensor_r)
-        epsilon_4 = max_c((0._8, 0._8), k_4 - epsilon_2)
-        flux = flux - lambda * (epsilon_2 * (state_r - state_l) - &
-          epsilon_4 * (state_rr - 3 * state_r + 3 * state_l - state_ll))
+        spectral_radius = max_c(spectral_radius_l, spectral_radius_r)
+        sensor = max_c(&
+          abs_c(p_ll - 2 * p_l + p_r) / (p_ll + 2 * p_l + p_r), &
+          abs_c(p_l - 2 * p_r + p_rr) / (p_l + 2 * p_r + p_rr)&
+          )
+        coef_2 = jst_k2 * sensor * spectral_radius
+        coef_4 = max_c((0._8, 0._8), jst_k4 * spectral_radius - jst_c4 * coef_2)
+        flux = flux - (coef_2 * (state_r - state_l) - &
+          coef_4 * (state_rr - 3 * state_r + 3 * state_l - state_ll))
       end associate
     end if
     ! ALE

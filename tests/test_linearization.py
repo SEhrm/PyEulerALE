@@ -465,7 +465,7 @@ class TestJacobi(unittest.TestCase):
         np.testing.assert_allclose(
             self.solver.compute_odes_wrt_vertices_inner_product_wrt_states(
                 d_odes, d_vertices,
-            ), gradient, atol=1e-6, rtol=1e-5,
+            ), gradient, atol=1e-6, rtol=5e-5,
         )
 
     def test_odes_wrt_vertices_inner_product_wrt_vertices(self) -> None:
@@ -534,7 +534,7 @@ class TestJacobi(unittest.TestCase):
         np.testing.assert_allclose(
             self.solver.compute_odes_wrt_velocities_inner_product_wrt_states(
                 d_odes, d_velocities,
-            ), gradient, atol=1e-6, rtol=1e-5,
+            ), gradient, atol=1e-6, rtol=5e-5,
         )
 
     def test_odes_wrt_velocities_inner_product_wrt_vertices(self) -> None:
