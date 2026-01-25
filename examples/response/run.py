@@ -12,9 +12,9 @@ import numpy as np
 
 from py_euler_ale import HEAT_RATIO
 from py_euler_ale import SpatialDiscretization
-from py_euler_ale import get_coefficients
-from py_euler_ale import get_pressure
-from py_euler_ale import get_pressure_derivative
+from py_euler_ale import get_pressure_coefficient
+from py_euler_ale import get_pressure_coefficient_derivative
+from py_euler_ale import get_section_coefficients
 
 parser = ArgumentParser(
     description="Computes the responses of Edwards' transfer function at zero angle-of-attack.")
@@ -35,8 +35,8 @@ args = parser.parse_args()
 def export_pressure_coefficients(
     file_name: str,
     vertices: np.ndarray,
-    pressures: np.ndarray,
-    pressures_wrt_aoa: np.ndarray,
+    pressure_coef: np.ndarray,
+    pressure_coef_wrt_aoa: np.ndarray,
 ) -> None:
     """Exports the pressure coefficients for plotting.
 
@@ -47,19 +47,19 @@ def export_pressure_coefficients(
     Args:
         file_name: File name to write to.
         vertices: Grid vertices.
-        pressures: Steady-state non-dimensional pressure.
-        pressures_wrt_aoa: Response from pitch angle to non-dimensional pressure.
+        pressure_coef: Steady-state pressure coefficient.
+        pressure_coef_wrt_aoa: Response from pitch angle to pressure coefficient.
     """
     with gzip.open(file_name, mode="w") as file:
-        for m, n in np.ndindex(pressures.shape):
+        for m, n in np.ndindex(pressure_coef.shape):
             cell_vertices = np.vstack((
                 vertices[:, m, n], vertices[:, m, n + 1],
                 vertices[:, m + 1, n + 1], vertices[:, m + 1, n],
             ))
             cell_data = np.tile(np.hstack((
-                (pressures[m, n] - 1.) / dynamic_pressure,
-                pressures_wrt_aoa[m, n].real / dynamic_pressure,
-                pressures_wrt_aoa[m, n].imag / dynamic_pressure,
+                pressure_coef[m, n],
+                pressure_coef_wrt_aoa[m, n].real,
+                pressure_coef_wrt_aoa[m, n].imag,
             )), 4).reshape(4, -1)
             # noinspection PyTypeChecker
             np.savetxt(file, np.hstack((cell_vertices, cell_data)), fmt="%+.5e")
@@ -73,8 +73,6 @@ print(f"{'Axis location / L:':<25} {args.axis_location}")
 
 # Non-dimensional free-stream speed `v₀₀/√(p₀₀/ϱ₀₀) = Ma₀₀⋅√γ`
 free_stream_speed = args.mach_number * HEAT_RATIO**0.5
-# Non-dimensional dynamic pressure `q₀₀/p₀₀ = Ma₀₀²⋅γ/2`
-dynamic_pressure = args.mach_number**2 * HEAT_RATIO / 2
 
 # Initialize solver
 solver = SpatialDiscretization(
@@ -166,15 +164,15 @@ for reduced_frequency in np.logspace(-2, 0, 11):
     )
 
     # Compute transfer from pitch angle to coefficients
-    lift_coef_wrt_aoa, moment_coef_wrt_aoa = (
-        get_coefficients(
+    _, lift_coef_wrt_aoa, moment_coef_wrt_aoa = (
+        get_section_coefficients(
             forces=forces_wrt_aoa,
             surface_points=solver.surface_points - [[args.axis_location], [0]],
-            dynamic_pressure=dynamic_pressure, chord=args.chord,
+            mach_number=args.mach_number, chord=args.chord,
         ) +
-        get_coefficients(
+        get_section_coefficients(
             forces=solver.forces, surface_points=surface_points_wrt_aoa,
-            dynamic_pressure=dynamic_pressure, chord=args.chord,
+            mach_number=args.mach_number, chord=args.chord,
         )
     )
 
@@ -187,6 +185,10 @@ for reduced_frequency in np.logspace(-2, 0, 11):
 export_pressure_coefficients(
     file_name="cp.gz",
     vertices=solver.vertices,
-    pressures=get_pressure(solver.states),
-    pressures_wrt_aoa=get_pressure_derivative(solver.states, states_wrt_aoa),
+    pressure_coef=get_pressure_coefficient(
+        solver.states, args.mach_number,
+    ),
+    pressure_coef_wrt_aoa=get_pressure_coefficient_derivative(
+        solver.states, states_wrt_aoa, args.mach_number,
+    ),
 )
