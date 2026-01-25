@@ -20,16 +20,10 @@ from .core import HEAT_RATIO
 from .core import NUM_DIM
 from .core import NUM_VAR
 from .core import SpatialDiscretization
-from .utils import get_pressure_coefficient
-from .utils import get_pressure_coefficient_derivative
-from .utils import get_section_coefficients
 
 __all__ = [
     "HEAT_RATIO",
     "NUM_DIM",
     "NUM_VAR",
     "SpatialDiscretization",
-    "get_pressure_coefficient",
-    "get_pressure_coefficient_derivative",
-    "get_section_coefficients",
 ]

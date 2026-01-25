@@ -12,9 +12,6 @@ import numpy as np
 
 from py_euler_ale import HEAT_RATIO
 from py_euler_ale import SpatialDiscretization
-from py_euler_ale import get_pressure_coefficient
-from py_euler_ale import get_pressure_coefficient_derivative
-from py_euler_ale import get_section_coefficients
 
 parser = ArgumentParser(
     description="Computes the responses of Edwards' transfer function at zero angle-of-attack.")
@@ -71,7 +68,7 @@ print(f"{'Chord / L:':<25} {args.chord}")
 print(f"{'Mach number:':<25} {args.mach_number}")
 print(f"{'Axis location / L:':<25} {args.axis_location}")
 
-# Non-dimensional free-stream speed `v₀₀/√(p₀₀/ϱ₀₀) = Ma₀₀⋅√γ`
+# Non-dimensional free-stream speed `vₒₒ/√(pₒₒ/ϱₒₒ) = Maₒₒ⋅√γ`
 free_stream_speed = args.mach_number * HEAT_RATIO**0.5
 
 # Initialize solver
@@ -79,6 +76,8 @@ solver = SpatialDiscretization(
     grid_file=args.mesh_file,
     mach_number=args.mach_number,
     angle_of_attack=0.,
+    coefficient_length=args.chord,
+    coefficient_center=(args.axis_location, 0.0),
 )
 
 # Compute ``solver.odes`` based on ``solver.states`` which is initialized by free-stream
@@ -164,16 +163,13 @@ for reduced_frequency in np.logspace(-2, 0, 11):
     )
 
     # Compute transfer from pitch angle to coefficients
-    _, lift_coef_wrt_aoa, moment_coef_wrt_aoa = (
-        get_section_coefficients(
-            forces=forces_wrt_aoa,
-            surface_points=solver.surface_points - [[args.axis_location], [0]],
-            mach_number=args.mach_number, chord=args.chord,
-        ) +
-        get_section_coefficients(
-            forces=solver.forces, surface_points=surface_points_wrt_aoa,
-            mach_number=args.mach_number, chord=args.chord,
-        )
+    lift_coef_wrt_aoa = np.vdot(
+        solver.compute_lift_coefficient_wrt_forces(), forces_wrt_aoa,
+    )
+    moment_coef_wrt_aoa = np.vdot(
+        solver.compute_moment_coefficient_wrt_forces(), forces_wrt_aoa,
+    ) + np.vdot(
+        solver.compute_moment_coefficient_wrt_vertices(), vertices_wrt_aoa,
     )
 
     # Print coefficients
@@ -185,10 +181,6 @@ for reduced_frequency in np.logspace(-2, 0, 11):
 export_pressure_coefficients(
     file_name="cp.gz",
     vertices=solver.vertices,
-    pressure_coef=get_pressure_coefficient(
-        solver.states, args.mach_number,
-    ),
-    pressure_coef_wrt_aoa=get_pressure_coefficient_derivative(
-        solver.states, states_wrt_aoa, args.mach_number,
-    ),
+    pressure_coef=solver.compute_pressure_coefficients(),
+    pressure_coef_wrt_aoa=solver.apply_pressure_coefficients_wrt_states_fwd(states_wrt_aoa),
 )

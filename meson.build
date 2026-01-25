@@ -37,7 +37,6 @@ py.install_sources(
   [
     'src/py_euler_ale/__init__.py',
     'src/py_euler_ale/core.py',
-    'src/py_euler_ale/utils.py',
   ],
   subdir: 'py_euler_ale'
 )

@@ -41,6 +41,8 @@ class SpatialDiscretization:
     _c2: float
     _mach: complex
     _aoa: float
+    _coefficient_length = float
+    _coefficient_center = tuple[float, float]
     _num_radial: int
     _num_angular: int
     _vertices: np.ndarray
@@ -60,6 +62,8 @@ class SpatialDiscretization:
         grid_file: str | Path,
         angle_of_attack: float = 1.25,
         mach_number: float = 0.5,
+        coefficient_length: float = 1.0,
+        coefficient_center: tuple[float, float] = (0.0, 0.0),
         jst_k2: float = 1,
         jst_k4: float = 1 / 32,
         jst_c4: float = 2,
@@ -72,12 +76,17 @@ class SpatialDiscretization:
             angle_of_attack: Far-field angle of attack in degree.
             mach_number: Free-stream Mach number. The scheme is unlikely to produce reliable results
                 for shocks in the sonic regine.
+            coefficient_length: Characteristic length in grid units for the section coefficients,
+                usually the chord length of the airfoil.
+            coefficient_center: Reference point in the grid for the section moment coefficients.
             jst_k2: JST artificial dissipation constant `κ₂`
             jst_k4: JST artificial dissipation constant `κ₄`
             jst_c4: JST artificial dissipation constant `c₄`
         """
         self.mach_number = mach_number
         self.angle_of_attack = angle_of_attack
+        self._coefficient_length = coefficient_length
+        self._coefficient_center = coefficient_center
         self._k2, self._k4, self._c4 = jst_k2, jst_k4, jst_c4
         self._vertices = self._read_grid(grid_file)
         self._num_radial = self._vertices.shape[1] - 1
@@ -120,6 +129,21 @@ class SpatialDiscretization:
     @angle_of_attack.setter
     def angle_of_attack(self, angle_of_attack: float) -> None:
         self._aoa = angle_of_attack
+
+    @property
+    def coefficient_length(self) -> float:
+        """Characteristic length for the section coefficients"""
+        return self._coefficient_length
+
+    @property
+    def coefficient_center(self) -> tuple[float, float]:
+        """Reference point for the section moment coefficient"""
+        return self._coefficient_center
+
+    @property
+    def _dynamic_pressure(self) -> float:
+        """Dynamic pressure"""
+        return self.mach_number**2 * HEAT_RATIO / 2
 
     @property
     def num_radial(self) -> int:
@@ -1249,3 +1273,216 @@ class SpatialDiscretization:
             vertices_gradient += sign * factor * vec_jac_product
         vertices_gradient = vertices_gradient / 2. / step
         return vertices_gradient
+
+    def compute_drag_coefficient(self) -> float:
+        """Computes the drag coefficient
+
+        Computes the section drag coefficient from ``forces``.
+
+        Returns:
+            Drag coefficient.
+        """
+        forces_x, _ = self.forces
+        drag_coef = np.sum(forces_x) / self._dynamic_pressure
+        return drag_coef
+
+    def compute_drag_coefficient_wrt_forces(
+        self,
+        forces_gradient: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Computes the drag coefficient gradient wrt ``forces``.
+
+        Computes the gradient `∇[𝓕]cd`.
+
+        Args:
+            forces_gradient: Covector into which to store the gradient. Must be a complex
+                FORTRAN-contiguous array in shape ``(NUM_DIM,num_angular)``. if not
+                provided, a newly-allocated array will be returned.
+
+        Returns:
+            Gradient.
+        """
+        if forces_gradient is not None:
+            self._check_array(forces_gradient, self._forces.shape)
+        else:
+            forces_gradient = np.empty_like(self._forces)
+        forces_gradient_x, forces_gradient_z = forces_gradient
+        forces_gradient_x[:] = 1. / (self._dynamic_pressure * self.coefficient_length)
+        forces_gradient_z[:] = 0.
+        return forces_gradient
+
+    def compute_lift_coefficient(self) -> float:
+        """Computes the lift coefficient
+
+        Computes the section drag coefficient from ``forces``.
+
+        Returns:
+            Lift coefficient.
+        """
+        _, forces_z = self.forces
+        lift_coef = np.sum(forces_z) / (self._dynamic_pressure * self.coefficient_length)
+        return lift_coef
+
+    def compute_lift_coefficient_wrt_forces(
+        self,
+        forces_gradient: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Computes the lift coefficient gradient wrt ``forces``.
+
+        Computes the gradient `∇[𝓕]cl`.
+
+        Args:
+            forces_gradient: Covector into which to store the gradient. Must be a complex
+                FORTRAN-contiguous array in shape ``(NUM_DIM,num_angular)``. if not
+                provided, a newly-allocated array will be returned.
+
+        Returns:
+            Gradient.
+        """
+        if forces_gradient is not None:
+            self._check_array(forces_gradient, self._forces.shape)
+        else:
+            forces_gradient = np.empty_like(self._forces)
+        forces_gradient_x, forces_gradient_z = forces_gradient
+        forces_gradient_x[:] = 0.
+        forces_gradient_z[:] = 1. / (self._dynamic_pressure * self.coefficient_length)
+        return forces_gradient
+
+    def compute_moment_coefficient(self) -> float:
+        """Computes the moment coefficient
+
+        Computes the section moment coefficient from ``forces`` and ``vertices``.
+
+        Returns:
+            Moment coefficient.
+        """
+        points_x, points_z = self.surface_points - np.reshape(self.coefficient_center, (2, 1))
+        forces_x, forces_z = self.forces
+        moment_coef = np.sum(
+            points_z * forces_x - points_x * forces_z,
+        ) / (self._dynamic_pressure * self.coefficient_length**2)
+        return moment_coef
+
+    def compute_moment_coefficient_wrt_forces(
+        self,
+        forces_gradient: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Computes the moment coefficient gradient wrt ``forces``.
+
+        Computes the gradient `∇[𝓕]cm`.
+
+        Args:
+            forces_gradient: Covector into which to store the gradient. Must be a complex
+                FORTRAN-contiguous array in shape ``(NUM_DIM,num_angular)``. if not
+                provided, a newly-allocated array will be returned.
+
+        Returns:
+            Gradient.
+        """
+        if forces_gradient is not None:
+            self._check_array(forces_gradient, self._forces.shape)
+        else:
+            forces_gradient = np.empty_like(self._forces)
+        points_x, points_z = self.surface_points - np.reshape(self.coefficient_center, (2, 1))
+        forces_gradient_x, forces_gradient_z = forces_gradient
+        forces_gradient_x[:] = points_z / (self._dynamic_pressure * self.coefficient_length**2)
+        forces_gradient_z[:] = -points_x / (self._dynamic_pressure * self.coefficient_length**2)
+        return forces_gradient
+
+    def compute_moment_coefficient_wrt_vertices(
+        self,
+        vertices_gradient: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Computes the moment coefficient gradient wrt ``vertices`` holding ``forces``.
+
+        Computes the gradient `∇[𝓧]cm`.
+
+        Args:
+            vertices_gradient: Covector into which to store the gradient. Must be a complex
+                FORTRAN-contiguous array in shape ``(NUM_DIM,num_radial+1,num_angular+1)``. if not
+                provided, a newly-allocated array will be returned.
+
+        Returns:
+            Gradient.
+        """
+        if vertices_gradient is not None:
+            self._check_array(vertices_gradient, self._vertices.shape)
+        else:
+            vertices_gradient = np.empty_like(self._vertices)
+        points_gradient_x, points_gradient_z = points_gradient \
+            = np.zeros_like(self.surface_points, dtype=complex)
+        forces_x, forces_z = self._forces
+        points_gradient_x[:] = -forces_z / (self._dynamic_pressure * self.coefficient_length**2)
+        points_gradient_z[:] = forces_x / (self._dynamic_pressure * self.coefficient_length**2)
+        # Based on the way surface points are computed from vertices
+        vertices_gradient[:] = 0.
+        vertices_gradient[:, 0, :-1] += points_gradient / 2.
+        vertices_gradient[:, 0, 1:] += points_gradient / 2.
+        return vertices_gradient
+
+    def compute_pressure_coefficients(
+        self,
+        pressure_coefficients: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Computes the pressure coefficients in the domain.
+
+        Computes the pressure coefficients from ``states``.
+
+        Args:
+            pressure_coefficients: Vector into which to store the coefficients. Must be a real
+                FORTRAN-contiguous array in shape ``(num_radial,num_angular)``. if not
+                provided, a newly-allocated array will be returned.
+
+        Returns:
+            Pressure coefficients.
+        """
+        if pressure_coefficients is not None:
+            self._check_array(pressure_coefficients, shape=(self.num_radial, self.num_radial),
+                              dtype=np.dtypes.Float64DType())
+        else:
+            pressure_coefficients = np.asfortranarray(np.empty(dtype=float, shape=(
+                self.num_radial, self.num_angular)))
+        density, momentum_density_x, momentum_density_z, total_energy_density = self.states
+        pressure_coefficients[:] = ((HEAT_RATIO - 1.) * (
+            total_energy_density - (momentum_density_x**2 + momentum_density_z**2) / 2. / density
+        ) - 1.) / self._dynamic_pressure
+        return pressure_coefficients
+
+    def apply_pressure_coefficients_wrt_states_fwd(
+        self,
+        d_states: np.ndarray,
+        d_pressure_coefficients: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Applies Jacobians of the pressure coefficients with respect to ``states`` in forward mode
+
+        Computes the matrix-vector-product `∂cp/∂𝓤⋅δ𝓤`, i.e. the directional derivative.
+
+        Args:
+            d_states: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(NUM_VAR,num_radial,num_angular)``.
+            d_pressure_coefficients: Vector into which to store the vector-product. Must be a
+                complex FORTRAN-contiguous array in shape ``(num_radial,num_angular)``. if not
+                provided, a newly-allocated array will be returned.
+
+        Returns:
+            Vector-product.
+        """
+        self._check_array(d_states, self._states.shape)
+        if d_pressure_coefficients is not None:
+            self._check_array(d_pressure_coefficients, shape=(self.num_radial, self.num_radial))
+        else:
+            d_pressure_coefficients = np.asfortranarray(np.empty(dtype=complex, shape=(
+                self.num_radial, self.num_angular)))
+        density, momentum_density_x, momentum_density_z, _ = self.states
+        d_density, d_momentum_density_x, d_momentum_density_z, d_total_energy_density = d_states
+        d_pressure_coefficients[:] = (HEAT_RATIO - 1.) * (
+            d_total_energy_density +
+            (
+                momentum_density_x**2 + momentum_density_z**2
+            ) / density**2 / 2. * d_density -
+            (
+                momentum_density_x * d_momentum_density_x +
+                momentum_density_z * d_momentum_density_z
+            ) / density
+        ) / self._dynamic_pressure
+        return d_pressure_coefficients
