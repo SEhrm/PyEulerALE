@@ -41,7 +41,7 @@ class SpatialDiscretization:
     _c2: float
     _mach: complex
     _aoa: float
-    _coefficient_length = float
+    _coefficient_length = float | None
     _coefficient_center = tuple[float, float]
     _num_radial: int
     _num_angular: int
@@ -60,9 +60,9 @@ class SpatialDiscretization:
     def __init__(
         self,
         grid_file: str | Path,
-        angle_of_attack: float = 1.25,
-        mach_number: float = 0.5,
-        coefficient_length: float = 1.0,
+        angle_of_attack: float,
+        mach_number: float,
+        coefficient_length: float | None = None,
         coefficient_center: tuple[float, float] = (0.0, 0.0),
         jst_k2: float = 1,
         jst_k4: float = 1 / 32,
@@ -132,17 +132,32 @@ class SpatialDiscretization:
 
     @property
     def coefficient_length(self) -> float:
-        """Characteristic length for the section coefficients"""
+        """Characteristic length for the section coefficients
+
+        Raises:
+            ValueError: If ``coefficient_length`` is not set.
+        """
+        if self._coefficient_length is None:
+            msg = "``coefficient_length`` not set."
+            raise ValueError(msg)
         return self._coefficient_length
+
+    @coefficient_length.setter
+    def coefficient_length(self, coefficient_length: float) -> None:
+        self._coefficient_length = coefficient_length
 
     @property
     def coefficient_center(self) -> tuple[float, float]:
         """Reference point for the section moment coefficient"""
         return self._coefficient_center
 
+    @coefficient_center.setter
+    def coefficient_center(self, coefficient_center: float) -> None:
+        self._coefficient_center = coefficient_center
+
     @property
     def _dynamic_pressure(self) -> float:
-        """Dynamic pressure"""
+        """Free-stream dynamic pressure"""
         return self.mach_number**2 * HEAT_RATIO / 2
 
     @property
@@ -1283,7 +1298,7 @@ class SpatialDiscretization:
             Drag coefficient.
         """
         forces_x, _ = self.forces
-        drag_coef = np.sum(forces_x) / self._dynamic_pressure
+        drag_coef = np.sum(forces_x) / (self._dynamic_pressure * self.coefficient_length)
         return drag_coef
 
     def compute_drag_coefficient_wrt_forces(
@@ -1429,9 +1444,9 @@ class SpatialDiscretization:
         Computes the pressure coefficients from ``states``.
 
         Args:
-            pressure_coefficients: Vector into which to store the coefficients. Must be a real
-                FORTRAN-contiguous array in shape ``(num_radial,num_angular)``. if not
-                provided, a newly-allocated array will be returned.
+            pressure_coefficients: Array into which to store the coefficients. Must be a real
+                FORTRAN-contiguous array in shape ``(num_radial,num_angular)``. if not provided,
+                a newly-allocated array will be returned.
 
         Returns:
             Pressure coefficients.
@@ -1486,3 +1501,30 @@ class SpatialDiscretization:
             ) / density
         ) / self._dynamic_pressure
         return d_pressure_coefficients
+
+    def compute_mach_numbers(
+        self,
+        mach_numbers: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Computes the local Mach numbers in the domain.
+
+        Computes the local Mach numbers from ``states``.
+
+        Args:
+            mach_numbers: Array into which to store the Mach numbers. Must be a real
+                FORTRAN-contiguous array in shape ``(num_radial,num_angular)``. if not provided,
+                a newly-allocated array will be returned.
+
+        Returns:
+            Pressure coefficients.
+        """
+        if mach_numbers is not None:
+            self._check_array(mach_numbers, shape=(self.num_radial, self.num_radial),
+                              dtype=np.dtypes.Float64DType())
+        else:
+            mach_numbers = np.asfortranarray(np.empty(dtype=float, shape=(
+                self.num_radial, self.num_angular)))
+        density, momentum_density_x, momentum_density_z, _ = self.states
+        speed = (momentum_density_x**2 + momentum_density_z**2)**.5 / density
+        mach_numbers[:] = speed / HEAT_RATIO**.5
+        return mach_numbers

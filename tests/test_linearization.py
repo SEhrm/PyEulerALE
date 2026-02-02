@@ -26,6 +26,8 @@ class TestJacobi(unittest.TestCase):
         self.rng = np.random.default_rng(seed=1)
         self.solver = SpatialDiscretization(
             grid_file=Path(__file__).parent / Path("naca0012_8x9.plot3d"),
+            angle_of_attack=1.25,
+            mach_number=0.5,
         )
         self.solver.states[:] *= (self.rng.random(self.solver.states.shape) - 0.5) * 0.01 + 1.
         self.solver.compute_odes()
