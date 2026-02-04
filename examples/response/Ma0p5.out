@@ -6,17 +6,13 @@ Axis location / L:        0.0
 Pseudo-transient continuation:
     it        residual    rel residual
      0         6.8e+01         1.0e+00
-     1         1.2e+02         1.8e+00
-     2         5.6e+01         8.3e-01
-     3         4.0e+01         5.8e-01
-     4         1.1e+01         1.6e-01
-     5         2.2e+00         3.3e-02
-     6         8.2e-01         1.2e-02
-     7         2.3e-01         3.4e-03
-     8         5.5e-02         8.1e-04
-     9         8.4e-04         1.2e-05
-    10         2.6e-07         3.9e-09
-    11         3.7e-12         5.5e-14
+     1         2.8e+01         4.2e-01
+     2         2.0e+01         3.0e-01
+     3         4.3e+00         6.3e-02
+     4         1.3e-01         1.9e-03
+     5         1.1e-02         1.6e-04
+     6         1.6e-04         2.4e-06
+     7         1.2e-08         1.7e-10
 
 Frequency response:
   red frequency          lift coefficient        moment coefficient

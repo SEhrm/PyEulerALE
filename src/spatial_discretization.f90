@@ -112,7 +112,7 @@ contains
     complex(8), intent(in) :: x, y
     ! todo
     ! add a small tolerance for improved consistency with real finite-differencing
-    if (real(x) > real(y) + 1e-8_8) then
+    if (real(x) > real(y) * (1e-5_8 + 1)) then
       max_c = x
     else
       max_c = y
