@@ -47,6 +47,33 @@ class TestJacobi(unittest.TestCase):
         d_states[:] = self.rng.random(array.shape) + self.rng.random(array.shape) * 1j
         return d_states
 
+    def test_surface_points_wrt_vertices(self) -> None:
+        """Compare Jacobians of ``surface_points`` wrt ``vertices`` with finite-difference"""
+        vertices_0 = self.solver.vertices.copy()
+        surface_points_0 = self.solver.surface_points.copy()
+        jacobi_fd = np.zeros((*surface_points_0.shape, *self.solver._vertices.shape))
+        for i in range(2):
+            for m in range(self.solver.num_radial + 1):
+                for n in range(self.solver.num_angular + 1):
+                    self.solver.vertices[:] = np.copy(vertices_0)
+                    self.solver.vertices[i, m, n] += 1e-8
+                    jacobi_fd[:, :, i, m, n] \
+                        = (self.solver.surface_points - surface_points_0) / 1e-8
+        # testing fwd
+        d_vertices = self.random_like(vertices_0)
+        np.testing.assert_allclose(
+            np.einsum("injkl,jkl->in", jacobi_fd, d_vertices),
+            self.solver.apply_surface_points_wrt_vertices_fwd(d_vertices),
+            atol=1e-6, rtol=1e-5,
+        )
+        # testing rev
+        d_surface_points = self.random_like(surface_points_0)
+        np.testing.assert_allclose(
+            np.einsum("injkl,in->jkl", jacobi_fd, d_surface_points),
+            self.solver.apply_surface_points_wrt_vertices_rev(d_surface_points),
+            atol=1e-6, rtol=1e-5,
+        )
+
     def test_odes_wrt_mach(self) -> None:
         """Compare Jacobians of ``odes`` wrt ``mach`` with finite-difference"""
         odes_0 = self.solver.odes.copy()

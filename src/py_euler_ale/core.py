@@ -29,7 +29,7 @@ class SpatialDiscretization:
     that one can run both the ordinary differential equation `d𝓤/dt = 𝓡(𝓤,𝓧,𝓥), 𝓕 = 𝓕(𝓤,𝓧)` and
     the time-invariant state-space representation `dδ𝓤/dt = ∂𝓡/∂𝓤⋅δ𝓤 + ∂𝓡/∂𝓧⋅δ𝓧 + ∂𝓡/∂𝓥⋅dδ𝓧/dt,
     δ𝓕 = ∂𝓕/∂𝓤⋅δ𝓤 + ∂𝓕/∂𝓧⋅δ𝓧` for the cell averaged states `𝓤`, the grid vertices `𝓧`, the grid
-    velocities `𝓥` and the forces `𝓕`.
+    velocities `𝓥`, and the forces `𝓕` on the surface integration points `𝓟`.
 
     The class allocates and holds the data arrays to be manipulated in-place by the FORTRAN
     subroutines. The general procedure for the user is to in-place modify the instance attribute
@@ -187,7 +187,9 @@ class SpatialDiscretization:
         airfoil in shape ``(NUM_DIM,num_angular)``. Automatically recalculated from the current grid
         vertex coordinates as the midpoints between consecutive vertices on the airfoil surface.
         """
-        return np.mean([self._vertices[:, 0, :-1].real, self._vertices[:, 0, 1:].real], axis=0)
+        return np.asfortranarray(
+            np.mean([self._vertices[:, 0, :-1].real, self._vertices[:, 0, 1:].real], axis=0),
+        )
 
     @property
     def velocities(self) -> np.ndarray:
@@ -289,6 +291,62 @@ class SpatialDiscretization:
         """
         self._configure_disc()
         disc.compute_odes(self._mach, self._vertices, self._velocities, self._states, self._odes)
+
+    def apply_surface_points_wrt_vertices_fwd(
+        self,
+        d_vertices: np.ndarray,
+        d_surface_points: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Applies Jacobian of ``surface_points`` with respect to ``vertices`` in forward mode
+
+        Computes the matrix-vector-product `∂𝓟/∂𝓧⋅δ𝓧`, i.e. the directional derivative.
+
+        Args:
+            d_vertices: Vector to multiply to the Jacobian. Must be complex a FORTRAN-contiguous
+                array in shape ``(NUM_DIM,num_radial+1,num_angular+1)``.
+            d_surface_points: Vector into which to store the vector-product. Must be a complex
+                FORTRAN-contiguous array in shape ``(NUM_DIM,num_angular)``. if not provided,
+                a newly-allocated array will be returned.
+
+        Returns:
+            Vector-product.
+        """
+        self._check_array(d_vertices, self._vertices.shape)
+        if d_surface_points is None:
+            d_surface_points = np.empty_like(self.surface_points, complex)
+        else:
+            self._check_array(d_surface_points, self.surface_points.shape)
+        d_surface_points[:] = np.mean([d_vertices[:, 0, :-1], d_vertices[:, 0, 1:]], axis=0)
+        return d_surface_points
+
+    def apply_surface_points_wrt_vertices_rev(
+        self,
+        d_surface_points: np.ndarray,
+        d_vertices: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Applies Jacobian of ``surface_points`` with respect to ``vertices`` in reverse mode
+
+        Computes the matrix-vector-product `∂𝓟/∂𝓧ᵀ⋅δ𝓟`.
+
+        Args:
+            d_surface_points: Covector to multiply to the Jacobian. Must be complex a
+                FORTRAN-contiguous array in shape ``(NUM_DIM,num_angular)``.
+            d_vertices: Covector into which to store the covector-product. Must be complex
+                FORTRAN-contiguous array in shape ``(NUM_DIM,num_radial+1,num_angular+1)``. if not
+                provided, a newly-allocated array will be returned.
+
+        Returns:
+            Covector-product.
+        """
+        self._check_array(d_surface_points, self.surface_points.shape)
+        if d_vertices is None:
+            d_vertices = np.empty_like(self._vertices)
+        else:
+            self._check_array(d_vertices, self._vertices.shape)
+        d_vertices[:] = 0.
+        d_vertices[:, 0, 1:] += d_surface_points / 2.
+        d_vertices[:, 0, :-1] += d_surface_points / 2.
+        return d_vertices
 
     def linearize(self) -> None:
         """Computes the Jacobians"""
@@ -772,7 +830,7 @@ class SpatialDiscretization:
             disc.apply_odes_wrt_mach_rev(
                 odes_wrt_mach_pert, d_odes.conj(), vec_jac_product)
             mach_gradient += sign * factor * vec_jac_product
-        mach_gradient = mach_gradient / 2. / step
+        mach_gradient[:] /= (2. * step)
         return mach_gradient
 
     def compute_odes_wrt_states_inner_product_wrt_states(
@@ -817,7 +875,7 @@ class SpatialDiscretization:
             disc.apply_odes_wrt_states_rev(
                 odes_wrt_states_pert, d_odes.conj(), vec_jac_product)
             states_gradient += sign * factor * vec_jac_product
-        states_gradient = states_gradient / 2. / step
+        states_gradient[:] /= (2. * step)
         return states_gradient
 
     def compute_odes_wrt_states_inner_product_wrt_vertices(
@@ -862,7 +920,7 @@ class SpatialDiscretization:
             disc.apply_odes_wrt_vertices_rev(
                 odes_wrt_vertices_pert, d_odes.conj(), vec_jac_product)
             vertices_gradient += sign * factor * vec_jac_product
-        vertices_gradient = vertices_gradient / 2. / step
+        vertices_gradient[:] /= (2. * step)
         return vertices_gradient
 
     def compute_odes_wrt_vertices_inner_product_wrt_mach(
@@ -907,7 +965,7 @@ class SpatialDiscretization:
             disc.apply_odes_wrt_mach_rev(
                 odes_wrt_mach_pert, d_odes.conj(), vec_jac_product)
             mach_gradient += sign * factor * vec_jac_product
-        mach_gradient = mach_gradient / 2. / step
+        mach_gradient[:] /= (2. * step)
         return mach_gradient
 
     def compute_odes_wrt_vertices_inner_product_wrt_states(
@@ -952,7 +1010,7 @@ class SpatialDiscretization:
             disc.apply_odes_wrt_states_rev(
                 odes_wrt_states_pert, d_odes.conj(), vec_jac_product)
             states_gradient += sign * factor * vec_jac_product
-        states_gradient = states_gradient / 2. / step
+        states_gradient[:] /= (2. * step)
         return states_gradient
 
     def compute_odes_wrt_vertices_inner_product_wrt_vertices(
@@ -997,7 +1055,7 @@ class SpatialDiscretization:
             disc.apply_odes_wrt_vertices_rev(
                 odes_wrt_vertices_pert, d_odes.conj(), vec_jac_product)
             vertices_gradient += sign * factor * vec_jac_product
-        vertices_gradient = vertices_gradient / 2. / step
+        vertices_gradient[:] /= (2. * step)
         return vertices_gradient
 
     def compute_odes_wrt_velocities_inner_product_wrt_mach(
@@ -1042,7 +1100,7 @@ class SpatialDiscretization:
             disc.apply_odes_wrt_mach_rev(
                 odes_wrt_mach_pert, d_odes.conj(), vec_jac_product)
             mach_gradient += sign * factor * vec_jac_product
-        mach_gradient = mach_gradient / 2. / step
+        mach_gradient[:] /= (2. * step)
         return mach_gradient
 
     def compute_odes_wrt_velocities_inner_product_wrt_states(
@@ -1087,7 +1145,7 @@ class SpatialDiscretization:
             disc.apply_odes_wrt_states_rev(
                 odes_wrt_states_pert, d_odes.conj(), vec_jac_product)
             states_gradient += sign * factor * vec_jac_product
-        states_gradient = states_gradient / 2. / step
+        states_gradient[:] /= (2. * step)
         return states_gradient
 
     def compute_odes_wrt_velocities_inner_product_wrt_vertices(
@@ -1132,7 +1190,7 @@ class SpatialDiscretization:
             disc.apply_odes_wrt_vertices_rev(
                 odes_wrt_vertices_pert, d_odes.conj(), vec_jac_product)
             vertices_gradient += sign * factor * vec_jac_product
-        vertices_gradient = vertices_gradient / 2. / step
+        vertices_gradient[:] /= (2. * step)
         return vertices_gradient
 
     def compute_forces_wrt_states_inner_product_wrt_states(
@@ -1177,7 +1235,7 @@ class SpatialDiscretization:
             disc.apply_forces_wrt_states_rev(
                 forces_wrt_states_pert, d_forces.conj(), vec_jac_product)
             states_gradient += sign * factor * vec_jac_product
-        states_gradient = states_gradient / 2. / step
+        states_gradient[:] /= (2. * step)
         return states_gradient
 
     def compute_forces_wrt_states_inner_product_wrt_vertices(
@@ -1222,7 +1280,7 @@ class SpatialDiscretization:
             disc.apply_forces_wrt_vertices_rev(
                 forces_wrt_vertices_pert, d_forces.conj(), vec_jac_product)
             vertices_gradient += sign * factor * vec_jac_product
-        vertices_gradient = vertices_gradient / 2. / step
+        vertices_gradient[:] /= (2. * step)
         return vertices_gradient
 
     def compute_forces_wrt_vertices_inner_product_wrt_states(
@@ -1267,7 +1325,7 @@ class SpatialDiscretization:
             disc.apply_forces_wrt_states_rev(
                 forces_wrt_states_pert, d_forces.conj(), vec_jac_product)
             states_gradient += sign * factor * vec_jac_product
-        states_gradient = states_gradient / 2. / step
+        states_gradient[:] /= (2. * step)
         return states_gradient
 
     def compute_forces_wrt_vertices_inner_product_wrt_vertices(
@@ -1312,7 +1370,7 @@ class SpatialDiscretization:
             disc.apply_forces_wrt_vertices_rev(
                 forces_wrt_vertices_pert, d_forces.conj(), vec_jac_product)
             vertices_gradient += sign * factor * vec_jac_product
-        vertices_gradient = vertices_gradient / 2. / step
+        vertices_gradient[:] /= (2. * step)
         return vertices_gradient
 
     def compute_drag_coefficient(self) -> float:
