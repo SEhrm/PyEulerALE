@@ -188,11 +188,10 @@ contains
   !! @return Numerical flux
   pure function make_face_flux(state_ll, state_l, state_r, state_rr, normal, grid_velo) &
     result (flux)
-    complex(8), intent(in), optional, dimension(num_var) :: state_ll(num_var), state_rr(num_var)
-    complex(8), intent(in), dimension(num_var) :: state_l(num_var), state_r(num_var)
-    complex(8), intent(in), dimension(num_dim) :: normal(num_dim), grid_velo(num_dim)
-    complex(8) :: flux(num_var)
-    complex(8) :: spectral_radius, sensor, coef_2, coef_4
+    complex(8), intent(in), optional :: state_ll(num_var), state_rr(num_var)
+    complex(8), intent(in) :: state_l(num_var), state_r(num_var)
+    complex(8), intent(in) :: normal(num_dim), grid_velo(num_dim)
+    complex(8) :: flux(num_var), spectral_radius, sensor, coef_2, coef_4
     ! Jameson DOI:10.2514/1.J055493
     flux = (make_physical_flux(state_l, normal) + make_physical_flux(state_r, normal)) / 2
     if (present(state_ll) .and. present(state_rr)) then
@@ -377,7 +376,7 @@ contains
     complex(8), dimension(num_var), intent(in) :: state_c, state_b, state_bb, state_f, state_ff, &
       state_i, state_ii, state_o, state_oo
     integer, intent(in) :: boundary_flag
-    complex(8), dimension(num_var) :: ode, ghost_state
+    complex(8) :: ode(num_var), ghost_state(num_var)
     associate (&
       area => make_area(vertex_bi, vertex_fi, vertex_fo, vertex_bo), &
       normal_i => make_normal(vertex_bi, vertex_fi), &

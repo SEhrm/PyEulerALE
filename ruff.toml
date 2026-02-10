@@ -1,5 +1,6 @@
 line-length = 100
 indent-width = 4
+required-version = "==0.15.0"
 
 [lint]
 select = [

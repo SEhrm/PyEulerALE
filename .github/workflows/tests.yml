@@ -25,7 +25,7 @@ jobs:
         run: |
           sudo apt install -yqqq gnuplot=5.4.2+dfsg2-2
           python -m pip install --upgrade pip
-          python -m pip install ruff fortitude-lint
+          python -m pip install ruff==0.15.0 fortitude-lint==0.8.0
           if [ "${{ matrix.numpy-version }}" = "latest" ]; then
             pip install .
           else
