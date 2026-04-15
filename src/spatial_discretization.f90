@@ -1181,7 +1181,6 @@ contains
   !! @param[in] num_radial Number of cells in the radial direction
   !! @param[in] num_angular Number of cells in the angular direction
   !! @param[in] vertices Grid vertex coordinate
-  !! @param[in] velocities Grid vertex velocities
   !! @param[in] states States
   !! @param[inout] jacs Jacobians
   pure subroutine compute_forces_wrt_states(num_radial, num_angular, vertices, states, jacs)
@@ -1220,7 +1219,6 @@ contains
   !! @param[in] num_radial Number of cells in the radial direction
   !! @param[in] num_angular Number of cells in the angular direction
   !! @param[in] vertices Grid vertex coordinate
-  !! @param[in] velocities Grid vertex velocities
   !! @param[in] states States
   !! @param[inout] jacs Jacobians
   pure subroutine compute_forces_wrt_vertices(num_radial, num_angular, vertices, states, jacs)
@@ -1293,8 +1291,8 @@ contains
   !! @param[in] num_radial Number of cells in the radial direction
   !! @param[in] num_angular Number of cells in the angular direction
   !! @param[in] jacs Jacobians from ``compute_forces_wrt_vertices``
-  !! @param[in] d_vertices Covector to multiply to the Jacobians
-  !! @param[inout] d_forces Covector-product
+  !! @param[in] d_forces Covector to multiply to the Jacobians
+  !! @param[inout] d_vertices Covector-product
   pure subroutine apply_forces_wrt_vertices_rev(&
     num_radial, num_angular, jacs, d_forces, d_vertices)
     !f2py integer, intent(hide) :: num_radial
@@ -1326,7 +1324,7 @@ contains
   !!
   !! @param[in] num_radial Number of cells in the radial direction
   !! @param[in] num_angular Number of cells in the angular direction
-  !! @param[in] jacs Jacobians from ``compute_forces_wrt_vertices``
+  !! @param[in] jacs Jacobians from ``compute_forces_wrt_states``
   !! @param[in] d_states Vector to multiply to the Jacobians
   !! @param[inout] d_forces Vector-product
   pure subroutine apply_forces_wrt_states_fwd(&
@@ -1352,7 +1350,7 @@ contains
   !!
   !! @param[in] num_radial Number of cells in the radial direction
   !! @param[in] num_angular Number of cells in the angular direction
-  !! @param[in] jacs Jacobians from ``compute_forces_wrt_vertices``
+  !! @param[in] jacs Jacobians from ``compute_forces_wrt_states``
   !! @param[in] d_forces Covector to multiply to the Jacobians
   !! @param[inout] d_states Covector-product
   pure subroutine apply_forces_wrt_states_rev(&

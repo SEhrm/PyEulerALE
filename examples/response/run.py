@@ -127,11 +127,6 @@ vertices_wrt_aoa = np.empty_like(solver.vertices, dtype=complex)
 vertices_wrt_aoa[1] = -(solver.vertices[0] - args.axis_location)
 vertices_wrt_aoa[0] = solver.vertices[1]
 
-# Compute transfer from pitch angle to surface points (1/rad):
-surface_points_wrt_aoa = np.empty_like(solver.surface_points, dtype=float)
-surface_points_wrt_aoa[1] = -(solver.surface_points[0] - args.axis_location)
-surface_points_wrt_aoa[0] = solver.surface_points[1]
-
 # Run frequency response
 print(f"\nFrequency response:\n"
       f"{'red frequency':>15} {'lift coefficient':>25} {'moment coefficient':>25}")

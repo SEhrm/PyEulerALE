@@ -1536,7 +1536,7 @@ class SpatialDiscretization:
             Pressure coefficients.
         """
         if pressure_coefficients is not None:
-            self._check_array(pressure_coefficients, shape=(self.num_radial, self.num_radial),
+            self._check_array(pressure_coefficients, shape=(self.num_radial, self.num_angular),
                               dtype=np.dtypes.Float64DType())
         else:
             pressure_coefficients = np.asfortranarray(np.empty(dtype=float, shape=(
@@ -1568,7 +1568,7 @@ class SpatialDiscretization:
         """
         self._check_array(d_states, self._states.shape)
         if d_pressure_coefficients is not None:
-            self._check_array(d_pressure_coefficients, shape=(self.num_radial, self.num_radial))
+            self._check_array(d_pressure_coefficients, shape=(self.num_radial, self.num_angular))
         else:
             d_pressure_coefficients = np.asfortranarray(np.empty(dtype=complex, shape=(
                 self.num_radial, self.num_angular)))
@@ -1600,10 +1600,10 @@ class SpatialDiscretization:
                 a newly-allocated array will be returned.
 
         Returns:
-            Pressure coefficients.
+            Mach numbers.
         """
         if mach_numbers is not None:
-            self._check_array(mach_numbers, shape=(self.num_radial, self.num_radial),
+            self._check_array(mach_numbers, shape=(self.num_radial, self.num_angular),
                               dtype=np.dtypes.Float64DType())
         else:
             mach_numbers = np.asfortranarray(np.empty(dtype=float, shape=(

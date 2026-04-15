@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-"""Computes the derivative of the lift coefficient slope wrt the Mach number.
+"""Computes the derivative of the lift coefficient slope wrt the Mach number
 
 Copyright (C) 2025 Simon Ehrmanntraut - All Rights Reserved
 """
@@ -12,7 +12,7 @@ import numpy as np
 from py_euler_ale import SpatialDiscretization
 
 parser = ArgumentParser(
-    description="Computes the lift slope wrt the Mach number at zero angle-of-attack.")
+    description="Computes the lift coefficient slope wrt the Mach number at zero angle-of-attack.")
 parser.add_argument("mesh_file", type=str, help="Mesh file.")
 parser.add_argument("chord", type=float, help="Chord length (in grid units).")
 parser.add_argument("mach_number", type=float, help="Free-stream Mach number.")
