@@ -1612,3 +1612,40 @@ class SpatialDiscretization:
         speed = (momentum_density_x**2 + momentum_density_z**2)**.5 / density
         mach_numbers[:] = speed / HEAT_RATIO**.5
         return mach_numbers
+
+    def apply_mach_numbers_wrt_states_fwd(
+        self,
+        d_states: np.ndarray,
+        d_mach_numbers: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Applies Jacobians of the local Mach numbers with respect to ``states`` in forward mode
+
+        Computes the matrix-vector-product `∂Ma/∂𝓤⋅δ𝓤`, i.e. the directional derivative.
+
+        Args:
+            d_states: Vector to multiply to the Jacobians. Must be complex FORTRAN-contiguous
+                array in shape ``(NUM_VAR,num_radial,num_angular)``.
+            d_mach_numbers: Vector into which to store the vector-product. Must be a
+                complex FORTRAN-contiguous array in shape ``(num_radial,num_angular)``. if not
+                provided, a newly-allocated array will be returned.
+
+        Returns:
+            Vector-product.
+        """
+        self._check_array(d_states, self._states.shape)
+        if d_mach_numbers is not None:
+            self._check_array(d_mach_numbers, shape=(self.num_radial, self.num_angular))
+        else:
+            d_mach_numbers = np.asfortranarray(np.empty(dtype=complex, shape=(
+                self.num_radial, self.num_angular)))
+        density, momentum_density_x, momentum_density_z, _ = self.states
+        d_density, d_momentum_density_x, d_momentum_density_z, _ = d_states
+        speed = (momentum_density_x**2 + momentum_density_z**2)**.5 / density
+        d_mach_numbers[:] = HEAT_RATIO**-.5 * (
+            (
+                momentum_density_x * d_momentum_density_x +
+                momentum_density_z * d_momentum_density_z
+            ) / speed / density**2 -
+            speed / density * d_density
+        )
+        return d_mach_numbers
