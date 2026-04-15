@@ -330,7 +330,8 @@ contains
   !!   `𝓇 = -1/aᶜ ⋅ [𝒻(𝓊ᶠ,𝓊ᶜ,𝓊ᵇ,𝓊ᵇᵇ,𝐧ᵇ,𝐯ᵇ)+
   !!                 𝒻(𝓊ᵇ,𝓊ᶜ,𝓊ᶠ,𝓊ᶠᶠ,𝐧ᶠ,𝐯ᶠ)+
   !!                 𝒻(𝓊ᵒ,𝓊ᶜ,𝓊ⁱ,𝓊ⁱⁱ,𝐧ⁱ,𝐯ⁱ)+
-  !!                 𝒻(𝓊ⁱ,𝓊ᶜ,𝓊ᵒ,𝓊ᵒᵒ,𝐧ᵒ,𝐯ᵒ)]`.
+  !!                 𝒻(𝓊ⁱ,𝓊ᶜ,𝓊ᵒ,𝓊ᵒᵒ,𝐧ᵒ,𝐯ᵒ)+
+  !!                 𝓊ᶜ⋅(𝐯ᵇ𝐧ᵇ+𝐯ᶠ𝐧ᶠ+𝐯ⁱ𝐧ⁱ+𝐯ᵒ𝐧ᵒ)]`.
   !! Based on the boundary flag, some states are ignored and the far-field ghost state, resp. the
   !! the wall ghost state, is computed.
   !!
@@ -431,6 +432,12 @@ contains
             normal = normal_o, grid_velo = grid_velo_o)&
           ) / area
       end select
+      ode = ode - state_c * (+&
+        sum(normal_i * grid_velo_i) + &
+        sum(normal_f * grid_velo_f) + &
+        sum(normal_o * grid_velo_o) + &
+        sum(normal_b * grid_velo_b)&
+        ) / area
     end associate
   end function make_ode
 

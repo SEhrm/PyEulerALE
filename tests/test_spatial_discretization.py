@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-"""Unittests for the linearization features of ``SpatialDiscretization``
+"""Unittests for ``SpatialDiscretization``
 
 Copyright (C) 2025 Simon Ehrmanntraut - All Rights Reserved
 """
@@ -14,8 +14,8 @@ from py_euler_ale import SpatialDiscretization
 
 
 # ruff: noqa: SLF001
-class TestJacobi(unittest.TestCase):
-    """Tests for the Jacobians"""
+class TestSpatialDiscretization(unittest.TestCase):
+    """Tests ``SpatialDiscretization``"""
 
     def setUp(self) -> None:
         """Preparation done for each test
@@ -46,6 +46,18 @@ class TestJacobi(unittest.TestCase):
         d_states = np.empty_like(array, order="F", dtype=complex)
         d_states[:] = self.rng.random(array.shape) + self.rng.random(array.shape) * 1j
         return d_states
+
+    def test_geometric_conservation_law(self) -> None:
+        """Check geometric conservation law
+
+        For constant flow states, arbitrarily moving the grid should not change ``odes``.
+        """
+        self.solver.set_free_stream_state()
+        self.solver.compute_odes()
+        odes_0 = self.solver.odes.copy()
+        self.solver.velocities[:] = self.random_like(self.solver.velocities).real
+        self.solver.compute_odes()
+        np.testing.assert_allclose(self.solver.odes[:, 1:, :], odes_0[:, 1:, :], atol=1e-10)
 
     def test_surface_points_wrt_vertices(self) -> None:
         """Compare Jacobians of ``surface_points`` wrt ``vertices`` with finite-difference"""
