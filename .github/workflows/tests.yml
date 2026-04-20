@@ -9,6 +9,9 @@ jobs:
   build:
 
     runs-on: ubuntu-22.04
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
@@ -44,10 +47,10 @@ jobs:
       - name: Check 'Response' example
         working-directory: examples/response
         run: |
-          python -u run.py ../grids/naca0004_129x129.plot3d 10. 0.05 0 | tee Ma0p05.out
-          git diff --exit-code Ma0p05.out
-          python -u run.py ../grids/naca0004_129x129.plot3d 10. 0.5 0 | tee Ma0p5.out
-          git diff --exit-code Ma0p5.out
+          for m in {10,50}; do
+            python -u run.py ../grids/naca0004_129x129.plot3d 10. 0.$m 0 | tee Ma0p$m.out
+            git diff --exit-code Ma0p$m.out
+          done
           ./bode.gpi
           git diff --exit-code bode.png
           ./sinusoidal.gpi
@@ -55,9 +58,9 @@ jobs:
       - name: Check 'Gain' example
         working-directory: examples/gain
         run: |
-          python -u run.py ../grids/naca0012_129x129.plot3d 10. 0.1 | tee Ma0p10.out
-          git diff --exit-code Ma0p10.out
-          python -u run.py ../grids/naca0012_129x129.plot3d 10. 0.5 | tee Ma0p50.out
-          git diff --exit-code Ma0p50.out
+          for m in {10..50..5}; do
+            python -u run.py ../grids/naca0012_129x129.plot3d 10. 0.$m | tee Ma0p$m.out
+            git diff --exit-code Ma0p$m.out
+          done
           ./prandtl.gpi
           git diff --exit-code prandtl.png

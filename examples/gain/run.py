@@ -141,5 +141,5 @@ lift_coef_wrt_aoa_wrt_mach = (
 
 # Print derivatives
 print("\nLift coefficient derivatives:")
-print(f"{'wrt pitch angle:':<36} {lift_coef_wrt_aoa.real:.3f} (1/rad)")
-print(f"{'wrt pitch angle wrt Mach number:':<36} {lift_coef_wrt_aoa_wrt_mach.real:.3f} (1/rad)")
+print(f"{'wrt pitch angle:':<36} {lift_coef_wrt_aoa.real:.2f} (1/rad)")
+print(f"{'wrt pitch angle wrt Mach number:':<36} {lift_coef_wrt_aoa_wrt_mach.real:.2f} (1/rad)")

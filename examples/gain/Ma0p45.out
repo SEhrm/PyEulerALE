@@ -15,5 +15,5 @@ Pseudo-transient continuation:
      8         2.9e-10         8.2e-12
 
 Lift coefficient derivatives:
-wrt pitch angle:                     7.934 (1/rad)
-wrt pitch angle wrt Mach number:     5.652 (1/rad)
+wrt pitch angle:                     7.93 (1/rad)
+wrt pitch angle wrt Mach number:     5.65 (1/rad)

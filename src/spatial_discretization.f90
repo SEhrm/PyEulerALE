@@ -49,7 +49,7 @@ module spatial_discretization
 
   private
 
-  real(8), parameter :: step = 1e-12_8           !>@brief Complex-step step-size
+  real(8), parameter :: step = 1e-20_8           !>@brief Complex-step step-size
   complex(8), parameter :: i_step = (0, step)    !>@brief Step-size times imaginary unit
   real(8), parameter :: deg_to_rad = 0.0174532925199432957692369_8  !>@brief Factor π/180
   real(8), parameter :: heat_ratio = 1.4_8       !>@brief Specific heat ratio `γ`

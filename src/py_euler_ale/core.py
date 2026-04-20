@@ -6,7 +6,6 @@ discretization.
 Copyright (C) 2025 Simon Ehrmanntraut - All Rights Reserved
 """
 
-from itertools import product
 from pathlib import Path
 
 import numpy as np
@@ -788,6 +787,33 @@ class SpatialDiscretization:
         disc.apply_forces_wrt_vertices_rev(self._forces_wrt_vertices, d_forces, d_vertices)
         return d_vertices
 
+    @staticmethod
+    def finite_differences_steps(
+        direction: np.ndarray, derivative: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Finite-differences steps generator for complex directional derivatives
+
+        Args:
+            direction: Derivative direction
+            derivative: Array to store the derivative.
+
+        Yields:
+            Step to add to the linearization point, and array to store the evaluation.
+        """
+        step_size = 1e-9
+        derivative[:] = 0.
+        evaluation = np.zeros_like(derivative)
+        for part, factor in ((np.real, 1.), (np.imag, 1.j)):
+            norm = np.mean(np.abs(part(direction)))
+            if norm <= 100 * np.finfo(direction.dtype).eps:
+                continue
+            for step, weight in (
+                (-2, 1 / 12), (-1, -2 / 3), (1, 2 / 3), (2, -1 / 12),
+            ):
+                yield step * step_size * part(direction) / norm, evaluation
+                derivative += weight * factor * evaluation * norm
+        derivative[:] /= step_size
+
     def compute_odes_wrt_states_inner_product_wrt_mach(
         self,
         d_odes: np.ndarray,
@@ -814,23 +840,17 @@ class SpatialDiscretization:
         self._check_array(d_odes, self._odes.shape)
         if mach_gradient is not None:
             self._check_array(mach_gradient, (1,))
-            mach_gradient[:] = 0.
         else:
             mach_gradient = np.zeros((1,), dtype=complex)
-        vec_jac_product = np.zeros_like((1,), dtype=complex)
         odes_wrt_mach_pert = np.zeros_like(self._odes_wrt_mach)
-        if not np.any(d_states):
-            return mach_gradient
-        step = 1e-8 * (1. + np.linalg.norm(self._states))**0.5 / np.linalg.norm(d_states)
-        for sign, (part, factor) in product((1., -1.), ((np.real, 1.), (np.imag, 1.j))):
+        for states_pert, jac_vec_pert in self.finite_differences_steps(
+            d_states, mach_gradient,
+        ):
             disc.compute_odes_wrt_mach(
                 self._mach, self._vertices, self._velocities,
-                self._states + sign * step * part(d_states), odes_wrt_mach_pert,
+                self._states + states_pert, odes_wrt_mach_pert,
             )
-            disc.apply_odes_wrt_mach_rev(
-                odes_wrt_mach_pert, d_odes.conj(), vec_jac_product)
-            mach_gradient += sign * factor * vec_jac_product
-        mach_gradient[:] /= (2. * step)
+            disc.apply_odes_wrt_mach_rev(odes_wrt_mach_pert, d_odes.conj(), jac_vec_pert)
         return mach_gradient
 
     def compute_odes_wrt_states_inner_product_wrt_states(
@@ -859,23 +879,17 @@ class SpatialDiscretization:
         self._check_array(d_odes, self._odes.shape)
         if states_gradient is not None:
             self._check_array(states_gradient, self._states.shape)
-            states_gradient[:] = 0.
         else:
             states_gradient = np.zeros_like(self._states)
-        vec_jac_product = np.zeros_like(self._states)
         odes_wrt_states_pert = np.zeros_like(self._odes_wrt_states)
-        if not np.any(d_states):
-            return states_gradient
-        step = 1e-8 * (1. + np.linalg.norm(self._states))**0.5 / np.linalg.norm(d_states)
-        for sign, (part, factor) in product((1., -1.), ((np.real, 1.), (np.imag, 1.j))):
+        for states_pert, jac_vec_pert in self.finite_differences_steps(
+            d_states, states_gradient,
+        ):
             disc.compute_odes_wrt_states(
                 self._mach, self._vertices, self._velocities,
-                self._states + sign * step * part(d_states), odes_wrt_states_pert,
+                self._states + states_pert, odes_wrt_states_pert,
             )
-            disc.apply_odes_wrt_states_rev(
-                odes_wrt_states_pert, d_odes.conj(), vec_jac_product)
-            states_gradient += sign * factor * vec_jac_product
-        states_gradient[:] /= (2. * step)
+            disc.apply_odes_wrt_states_rev(odes_wrt_states_pert, d_odes.conj(), jac_vec_pert)
         return states_gradient
 
     def compute_odes_wrt_states_inner_product_wrt_vertices(
@@ -904,23 +918,17 @@ class SpatialDiscretization:
         self._check_array(d_odes, self._odes.shape)
         if vertices_gradient is not None:
             self._check_array(vertices_gradient, self._vertices.shape)
-            vertices_gradient[:] = 0.
         else:
             vertices_gradient = np.zeros_like(self._vertices)
-        vec_jac_product = np.zeros_like(self._vertices)
         odes_wrt_vertices_pert = np.zeros_like(self._odes_wrt_vertices)
-        if not np.any(d_states):
-            return vertices_gradient
-        step = 1e-8 * (1. + np.linalg.norm(self._states))**0.5 / np.linalg.norm(d_states)
-        for sign, (part, factor) in product((1., -1.), ((np.real, 1.), (np.imag, 1.j))):
+        for states_pert, jac_vec_pert in self.finite_differences_steps(
+            d_states, vertices_gradient,
+        ):
             disc.compute_odes_wrt_vertices(
                 self._mach, self._vertices, self._velocities,
-                self._states + sign * step * part(d_states), odes_wrt_vertices_pert,
+                self._states + states_pert, odes_wrt_vertices_pert,
             )
-            disc.apply_odes_wrt_vertices_rev(
-                odes_wrt_vertices_pert, d_odes.conj(), vec_jac_product)
-            vertices_gradient += sign * factor * vec_jac_product
-        vertices_gradient[:] /= (2. * step)
+            disc.apply_odes_wrt_vertices_rev(odes_wrt_vertices_pert, d_odes.conj(), jac_vec_pert)
         return vertices_gradient
 
     def compute_odes_wrt_vertices_inner_product_wrt_mach(
@@ -949,23 +957,17 @@ class SpatialDiscretization:
         self._check_array(d_odes, self._odes.shape)
         if mach_gradient is not None:
             self._check_array(mach_gradient, (1,))
-            mach_gradient[:] = 0.
         else:
             mach_gradient = np.zeros((1,), dtype=complex)
-        vec_jac_product = np.zeros((1,), dtype=complex)
         odes_wrt_mach_pert = np.zeros_like(self._odes_wrt_mach)
-        if not np.any(d_vertices):
-            return mach_gradient
-        step = 1e-8 * (1. + np.linalg.norm(self._vertices))**0.5 / np.linalg.norm(d_vertices)
-        for sign, (part, factor) in product((1., -1.), ((np.real, 1.), (np.imag, 1.j))):
+        for vertices_pert, jac_vec_pert in self.finite_differences_steps(
+            d_vertices, mach_gradient,
+        ):
             disc.compute_odes_wrt_mach(
-                self._mach, self._vertices + sign * step * part(d_vertices), self._velocities,
+                self._mach, self._vertices + vertices_pert, self._velocities,
                 self._states, odes_wrt_mach_pert,
             )
-            disc.apply_odes_wrt_mach_rev(
-                odes_wrt_mach_pert, d_odes.conj(), vec_jac_product)
-            mach_gradient += sign * factor * vec_jac_product
-        mach_gradient[:] /= (2. * step)
+            disc.apply_odes_wrt_mach_rev(odes_wrt_mach_pert, d_odes.conj(), jac_vec_pert)
         return mach_gradient
 
     def compute_odes_wrt_vertices_inner_product_wrt_states(
@@ -994,23 +996,17 @@ class SpatialDiscretization:
         self._check_array(d_odes, self._odes.shape)
         if states_gradient is not None:
             self._check_array(states_gradient, self._states.shape)
-            states_gradient[:] = 0.
         else:
             states_gradient = np.zeros_like(self._states)
-        vec_jac_product = np.zeros_like(self._states)
         odes_wrt_states_pert = np.zeros_like(self._odes_wrt_states)
-        if not np.any(d_vertices):
-            return states_gradient
-        step = 1e-8 * (1. + np.linalg.norm(self._vertices))**0.5 / np.linalg.norm(d_vertices)
-        for sign, (part, factor) in product((1., -1.), ((np.real, 1.), (np.imag, 1.j))):
+        for vertices_pert, jac_vec_pert in self.finite_differences_steps(
+            d_vertices, states_gradient,
+        ):
             disc.compute_odes_wrt_states(
-                self._mach, self._vertices + sign * step * part(d_vertices), self._velocities,
+                self._mach, self._vertices + vertices_pert, self._velocities,
                 self._states, odes_wrt_states_pert,
             )
-            disc.apply_odes_wrt_states_rev(
-                odes_wrt_states_pert, d_odes.conj(), vec_jac_product)
-            states_gradient += sign * factor * vec_jac_product
-        states_gradient[:] /= (2. * step)
+            disc.apply_odes_wrt_states_rev(odes_wrt_states_pert, d_odes.conj(), jac_vec_pert)
         return states_gradient
 
     def compute_odes_wrt_vertices_inner_product_wrt_vertices(
@@ -1039,23 +1035,17 @@ class SpatialDiscretization:
         self._check_array(d_odes, self._odes.shape)
         if vertices_gradient is not None:
             self._check_array(vertices_gradient, self._vertices.shape)
-            vertices_gradient[:] = 0.
         else:
             vertices_gradient = np.zeros_like(self._vertices)
-        vec_jac_product = np.zeros_like(self._vertices)
         odes_wrt_vertices_pert = np.zeros_like(self._odes_wrt_vertices)
-        if not np.any(d_vertices):
-            return vertices_gradient
-        step = 1e-8 * (1. + np.linalg.norm(self._vertices))**0.5 / np.linalg.norm(d_vertices)
-        for sign, (part, factor) in product((1., -1.), ((np.real, 1.), (np.imag, 1.j))):
+        for vertices_pert, jac_vec_pert in self.finite_differences_steps(
+            d_vertices, vertices_gradient,
+        ):
             disc.compute_odes_wrt_vertices(
-                self._mach, self._vertices + sign * step * part(d_vertices), self._velocities,
+                self._mach, self._vertices + vertices_pert, self._velocities,
                 self._states, odes_wrt_vertices_pert,
             )
-            disc.apply_odes_wrt_vertices_rev(
-                odes_wrt_vertices_pert, d_odes.conj(), vec_jac_product)
-            vertices_gradient += sign * factor * vec_jac_product
-        vertices_gradient[:] /= (2. * step)
+            disc.apply_odes_wrt_vertices_rev(odes_wrt_vertices_pert, d_odes.conj(), jac_vec_pert)
         return vertices_gradient
 
     def compute_odes_wrt_velocities_inner_product_wrt_mach(
@@ -1084,23 +1074,17 @@ class SpatialDiscretization:
         self._check_array(d_odes, self._odes.shape)
         if mach_gradient is not None:
             self._check_array(mach_gradient, (1,))
-            mach_gradient[:] = 0.
         else:
             mach_gradient = np.zeros((1,), dtype=complex)
-        vec_jac_product = np.zeros((1,), dtype=complex)
         odes_wrt_mach_pert = np.zeros_like(self._odes_wrt_mach)
-        if not np.any(d_velocities):
-            return mach_gradient
-        step = 1e-8 * (1. + np.linalg.norm(self._velocities))**0.5 / np.linalg.norm(d_velocities)
-        for sign, (part, factor) in product((1., -1.), ((np.real, 1.), (np.imag, 1.j))):
+        for velocities_pert, jac_vec_pert in self.finite_differences_steps(
+            d_velocities, mach_gradient,
+        ):
             disc.compute_odes_wrt_mach(
-                self._mach, self._vertices, self._velocities + sign * step * part(d_velocities),
+                self._mach, self._vertices, self._velocities + velocities_pert,
                 self._states, odes_wrt_mach_pert,
             )
-            disc.apply_odes_wrt_mach_rev(
-                odes_wrt_mach_pert, d_odes.conj(), vec_jac_product)
-            mach_gradient += sign * factor * vec_jac_product
-        mach_gradient[:] /= (2. * step)
+            disc.apply_odes_wrt_mach_rev(odes_wrt_mach_pert, d_odes.conj(), jac_vec_pert)
         return mach_gradient
 
     def compute_odes_wrt_velocities_inner_product_wrt_states(
@@ -1129,23 +1113,17 @@ class SpatialDiscretization:
         self._check_array(d_odes, self._odes.shape)
         if states_gradient is not None:
             self._check_array(states_gradient, self._states.shape)
-            states_gradient[:] = 0.
         else:
             states_gradient = np.zeros_like(self._states)
-        vec_jac_product = np.zeros_like(self._states)
         odes_wrt_states_pert = np.zeros_like(self._odes_wrt_states)
-        if not np.any(d_velocities):
-            return states_gradient
-        step = 1e-8 * (1. + np.linalg.norm(self._velocities))**0.5 / np.linalg.norm(d_velocities)
-        for sign, (part, factor) in product((1., -1.), ((np.real, 1.), (np.imag, 1.j))):
+        for velocities_pert, jac_vec_pert in self.finite_differences_steps(
+            d_velocities, states_gradient,
+        ):
             disc.compute_odes_wrt_states(
-                self._mach, self._vertices, self._velocities + sign * step * part(d_velocities),
+                self._mach, self._vertices, self._velocities + velocities_pert,
                 self._states, odes_wrt_states_pert,
             )
-            disc.apply_odes_wrt_states_rev(
-                odes_wrt_states_pert, d_odes.conj(), vec_jac_product)
-            states_gradient += sign * factor * vec_jac_product
-        states_gradient[:] /= (2. * step)
+            disc.apply_odes_wrt_states_rev(odes_wrt_states_pert, d_odes.conj(), jac_vec_pert)
         return states_gradient
 
     def compute_odes_wrt_velocities_inner_product_wrt_vertices(
@@ -1174,23 +1152,17 @@ class SpatialDiscretization:
         self._check_array(d_odes, self._odes.shape)
         if vertices_gradient is not None:
             self._check_array(vertices_gradient, self._vertices.shape)
-            vertices_gradient[:] = 0.
         else:
             vertices_gradient = np.zeros_like(self._vertices)
-        vec_jac_product = np.zeros_like(self._vertices)
         odes_wrt_vertices_pert = np.zeros_like(self._odes_wrt_vertices)
-        if not np.any(d_velocities):
-            return vertices_gradient
-        step = 1e-8 * (1. + np.linalg.norm(self._velocities))**0.5 / np.linalg.norm(d_velocities)
-        for sign, (part, factor) in product((1., -1.), ((np.real, 1.), (np.imag, 1.j))):
+        for velocities_pert, jac_vec_pert in self.finite_differences_steps(
+            d_velocities, vertices_gradient,
+        ):
             disc.compute_odes_wrt_vertices(
-                self._mach, self._vertices, self._velocities + sign * step * part(d_velocities),
+                self._mach, self._vertices, self._velocities + velocities_pert,
                 self._states, odes_wrt_vertices_pert,
             )
-            disc.apply_odes_wrt_vertices_rev(
-                odes_wrt_vertices_pert, d_odes.conj(), vec_jac_product)
-            vertices_gradient += sign * factor * vec_jac_product
-        vertices_gradient[:] /= (2. * step)
+            disc.apply_odes_wrt_vertices_rev(odes_wrt_vertices_pert, d_odes.conj(), jac_vec_pert)
         return vertices_gradient
 
     def compute_forces_wrt_states_inner_product_wrt_states(
@@ -1219,23 +1191,18 @@ class SpatialDiscretization:
         self._check_array(d_forces, self._forces.shape)
         if states_gradient is not None:
             self._check_array(states_gradient, self._states.shape)
-            states_gradient[:] = 0.
         else:
             states_gradient = np.zeros_like(self._states)
-        vec_jac_product = np.zeros_like(self._states)
         forces_wrt_states_pert = np.zeros_like(self._forces_wrt_states)
-        if not np.any(d_states):
-            return states_gradient
-        step = 1e-8 * (1. + np.linalg.norm(self._states))**0.5 / np.linalg.norm(d_states)
-        for sign, (part, factor) in product((1., -1.), ((np.real, 1.), (np.imag, 1.j))):
+        for states_pert, jac_vec_pert in self.finite_differences_steps(
+            d_states, states_gradient,
+        ):
             disc.compute_forces_wrt_states(
-                self._vertices, self._states + sign * step * part(d_states),
-                forces_wrt_states_pert,
+                self._vertices, self._states + states_pert, forces_wrt_states_pert,
             )
             disc.apply_forces_wrt_states_rev(
-                forces_wrt_states_pert, d_forces.conj(), vec_jac_product)
-            states_gradient += sign * factor * vec_jac_product
-        states_gradient[:] /= (2. * step)
+                forces_wrt_states_pert, d_forces.conj(), jac_vec_pert,
+            )
         return states_gradient
 
     def compute_forces_wrt_states_inner_product_wrt_vertices(
@@ -1264,23 +1231,18 @@ class SpatialDiscretization:
         self._check_array(d_forces, self._forces.shape)
         if vertices_gradient is not None:
             self._check_array(vertices_gradient, self._vertices.shape)
-            vertices_gradient[:] = 0.
         else:
             vertices_gradient = np.zeros_like(self._vertices)
-        vec_jac_product = np.zeros_like(self._vertices)
         forces_wrt_vertices_pert = np.zeros_like(self._forces_wrt_vertices)
-        if not np.any(d_states):
-            return vertices_gradient
-        step = 1e-8 * (1. + np.linalg.norm(self._states))**0.5 / np.linalg.norm(d_states)
-        for sign, (part, factor) in product((1., -1.), ((np.real, 1.), (np.imag, 1.j))):
+        for states_pert, jac_vec_pert in self.finite_differences_steps(
+            d_states, vertices_gradient,
+        ):
             disc.compute_forces_wrt_vertices(
-                self._vertices, self._states + sign * step * part(d_states),
-                forces_wrt_vertices_pert,
+                self._vertices, self._states + states_pert, forces_wrt_vertices_pert,
             )
             disc.apply_forces_wrt_vertices_rev(
-                forces_wrt_vertices_pert, d_forces.conj(), vec_jac_product)
-            vertices_gradient += sign * factor * vec_jac_product
-        vertices_gradient[:] /= (2. * step)
+                forces_wrt_vertices_pert, d_forces.conj(), jac_vec_pert,
+            )
         return vertices_gradient
 
     def compute_forces_wrt_vertices_inner_product_wrt_states(
@@ -1309,23 +1271,18 @@ class SpatialDiscretization:
         self._check_array(d_forces, self._forces.shape)
         if states_gradient is not None:
             self._check_array(states_gradient, self._states.shape)
-            states_gradient[:] = 0.
         else:
             states_gradient = np.zeros_like(self._states)
-        vec_jac_product = np.zeros_like(self._states)
         forces_wrt_states_pert = np.zeros_like(self._forces_wrt_states)
-        if not np.any(d_vertices):
-            return states_gradient
-        step = 1e-8 * (1. + np.linalg.norm(self._vertices))**0.5 / np.linalg.norm(d_vertices)
-        for sign, (part, factor) in product((1., -1.), ((np.real, 1.), (np.imag, 1.j))):
+        for vertices_pert, jac_vec_pert in self.finite_differences_steps(
+            d_vertices, states_gradient,
+        ):
             disc.compute_forces_wrt_states(
-                self._vertices + sign * step * part(d_vertices), self._states,
-                forces_wrt_states_pert,
+                self._vertices + vertices_pert, self._states, forces_wrt_states_pert,
             )
             disc.apply_forces_wrt_states_rev(
-                forces_wrt_states_pert, d_forces.conj(), vec_jac_product)
-            states_gradient += sign * factor * vec_jac_product
-        states_gradient[:] /= (2. * step)
+                forces_wrt_states_pert, d_forces.conj(), jac_vec_pert,
+            )
         return states_gradient
 
     def compute_forces_wrt_vertices_inner_product_wrt_vertices(
@@ -1354,23 +1311,18 @@ class SpatialDiscretization:
         self._check_array(d_forces, self._forces.shape)
         if vertices_gradient is not None:
             self._check_array(vertices_gradient, self._vertices.shape)
-            vertices_gradient[:] = 0.
         else:
             vertices_gradient = np.zeros_like(self._vertices)
-        vec_jac_product = np.zeros_like(self._vertices)
         forces_wrt_vertices_pert = np.zeros_like(self._forces_wrt_vertices)
-        if not np.any(d_vertices):
-            return vertices_gradient
-        step = 1e-8 * (1. + np.linalg.norm(self._vertices))**0.5 / np.linalg.norm(d_vertices)
-        for sign, (part, factor) in product((1., -1.), ((np.real, 1.), (np.imag, 1.j))):
+        for vertices_pert, jac_vec_pert in self.finite_differences_steps(
+            d_vertices, vertices_gradient,
+        ):
             disc.compute_forces_wrt_vertices(
-                self._vertices + sign * step * part(d_vertices), self._states,
-                forces_wrt_vertices_pert,
+                self._vertices + vertices_pert, self._states, forces_wrt_vertices_pert,
             )
             disc.apply_forces_wrt_vertices_rev(
-                forces_wrt_vertices_pert, d_forces.conj(), vec_jac_product)
-            vertices_gradient += sign * factor * vec_jac_product
-        vertices_gradient[:] /= (2. * step)
+                forces_wrt_vertices_pert, d_forces.conj(), jac_vec_pert,
+            )
         return vertices_gradient
 
     def compute_drag_coefficient(self) -> float:
