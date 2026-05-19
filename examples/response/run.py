@@ -6,13 +6,16 @@ Copyright (C) 2025 Simon Ehrmanntraut - All Rights Reserved
 """
 
 import gzip
+import sys
 from argparse import ArgumentParser
 
 import numpy as np
+from mpi4py.MPI import COMM_WORLD
 
 from py_euler_ale import HEAT_RATIO
 from py_euler_ale import SpatialDiscretization
 
+sys.stdout = sys.stdout if COMM_WORLD.rank == 0 else None
 parser = ArgumentParser(
     description="Computes the responses of Edwards' transfer function at zero angle-of-attack.")
 parser.add_argument("mesh_file", type=str, help="Mesh file.")
@@ -47,6 +50,8 @@ def export_pressure_coefficients(
         pressure_coef: Steady-state pressure coefficient.
         pressure_coef_wrt_aoa: Response from pitch angle to pressure coefficient.
     """
+    if COMM_WORLD != 0:
+        return
     with gzip.open(file_name, mode="w") as file:
         for m, n in np.ndindex(pressure_coef.shape):
             cell_vertices = np.vstack((
@@ -78,6 +83,7 @@ solver = SpatialDiscretization(
     angle_of_attack=0.,
     coefficient_length=args.chord,
     coefficient_center=(args.axis_location, 0.0),
+    comm=COMM_WORLD,
 )
 
 # Compute ``solver.odes`` based on ``solver.states`` which is initialized by free-stream

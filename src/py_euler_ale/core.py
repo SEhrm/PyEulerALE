@@ -9,10 +9,11 @@ Copyright (C) 2025 Simon Ehrmanntraut - All Rights Reserved
 from pathlib import Path
 
 import numpy as np
+from mpi4py import MPI
+from mumps import spsolve
 from scipy.sparse import bsr_array
 from scipy.sparse import csr_array
 from scipy.sparse import eye_array
-from scipy.sparse.linalg import spsolve
 
 from .euler_ale import spatial_discretization as disc
 
@@ -49,6 +50,7 @@ class SpatialDiscretization:
     _states: np.ndarray
     _odes: np.ndarray
     _forces: np.ndarray
+    _comm: MPI.Comm
     # Jacobians:
     _odes_wrt_mach: np.ndarray
     _odes_wrt_states: np.ndarray
@@ -67,6 +69,7 @@ class SpatialDiscretization:
         jst_k2: float = 1,
         jst_k4: float = 1 / 32,
         jst_c4: float = 2,
+        comm: MPI.Comm = MPI.COMM_WORLD,
     ) -> None:
         """Initialize the discretization
 
@@ -82,12 +85,14 @@ class SpatialDiscretization:
             jst_k2: JST artificial dissipation constant `κ₂`
             jst_k4: JST artificial dissipation constant `κ₄`
             jst_c4: JST artificial dissipation constant `c₄`
+            comm: MPI communicator.
         """
         self.mach_number = mach_number
         self.angle_of_attack = angle_of_attack
         self._coefficient_length = coefficient_length
         self._coefficient_center = coefficient_center
         self._k2, self._k4, self._c4 = jst_k2, jst_k4, jst_c4
+        self._comm = comm
         self._vertices = self._read_grid(grid_file)
         self._num_radial = self._vertices.shape[1] - 1
         self._num_angular = self._vertices.shape[2] - 1
@@ -111,6 +116,11 @@ class SpatialDiscretization:
         self._forces_wrt_vertices = np.asfortranarray(np.zeros(dtype=float, shape=(
             NUM_DIM, NUM_DIM, self.num_angular, 2)))
         self.set_free_stream_state()
+
+    @property
+    def comm(self) -> MPI.Comm:
+        """MPI communicator"""
+        return self._comm
 
     @property
     def mach_number(self) -> float:
@@ -589,7 +599,7 @@ class SpatialDiscretization:
             shift: Shift value to subtract from the main diagonal.
 
         Returns:
-            (Shifted) Jacobian as CSR matrix.
+            (Shifted) Jacobian as BSR matrix.
         """
         num_blocks = (self.num_radial * 9 - 6) * self.num_angular
         row_indices = np.empty(num_blocks, dtype=np.intc)
@@ -636,11 +646,12 @@ class SpatialDiscretization:
             d_states = np.empty_like(d_odes, result_dtype)
         else:
             self._check_array(d_states, self._states.shape, result_dtype)
-        jacobi = self._assemble_bsr(shift=shift)
+        jacobi = self._assemble_bsr(shift=shift).astype(dtype=result_dtype, copy=False)
         # sparse LU for possibly complex solution
         d_states.ravel(order="K")[:] = spsolve(
-            jacobi.tocsr(), d_odes.ravel(order="K"),
+            jacobi, d_odes.ravel(order="K"), comm=self._comm,
         )
+        self._comm.Bcast(d_states, root=0)
         return d_states
 
     def solve_odes_wrt_states_adj(
@@ -670,11 +681,12 @@ class SpatialDiscretization:
             d_odes = np.empty_like(d_states, result_dtype)
         else:
             self._check_array(d_odes, self._odes.shape, result_dtype)
-        jacobi = self._assemble_bsr(shift=shift.conjugate())
+        jacobi = self._assemble_bsr(shift=shift.conjugate()).astype(dtype=result_dtype, copy=False)
         # sparse LU for possibly complex solution
         d_odes.ravel(order="K")[:] = spsolve(
-            jacobi.T.tocsr(), d_states.ravel(order="K"),
+            jacobi.T, d_states.ravel(order="K"), comm=self._comm,
         )
+        self._comm.Bcast(d_odes, root=0)
         return d_odes
 
     def compute_forces(self) -> None:

@@ -26,7 +26,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install
         run: |
-          sudo apt install -yqqq gnuplot=5.4.2+dfsg2-2
+          sudo apt install -yqqq libmumps-dev gnuplot=5.4.2+dfsg2-2
           python -m pip install --upgrade pip
           python -m pip install ruff==0.15.0 fortitude-lint==0.8.0
           if [ "${{ matrix.numpy-version }}" = "latest" ]; then
@@ -48,7 +48,8 @@ jobs:
         working-directory: examples/response
         run: |
           for m in {10,50}; do
-            python -u run.py ../grids/naca0004_129x129.plot3d 10. 0.$m 0 | tee Ma0p$m.out
+            mpirun -n 2 --bind-to core \
+              python -u run.py ../grids/naca0004_129x129.plot3d 10. 0.$m 0 | tee Ma0p$m.out
             git diff --exit-code Ma0p$m.out
           done
           ./bode.gpi
@@ -59,7 +60,8 @@ jobs:
         working-directory: examples/gain
         run: |
           for m in {10..50..5}; do
-            python -u run.py ../grids/naca0012_129x129.plot3d 10. 0.$m | tee Ma0p$m.out
+            mpirun -n 2 --bind-to core \
+              python -u run.py ../grids/naca0012_129x129.plot3d 10. 0.$m | tee Ma0p$m.out
             git diff --exit-code Ma0p$m.out
           done
           ./prandtl.gpi

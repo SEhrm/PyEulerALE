@@ -5,12 +5,15 @@
 Copyright (C) 2025 Simon Ehrmanntraut - All Rights Reserved
 """
 
+import sys
 from argparse import ArgumentParser
 
 import numpy as np
+from mpi4py.MPI import COMM_WORLD
 
 from py_euler_ale import SpatialDiscretization
 
+sys.stdout = sys.stdout if COMM_WORLD.rank == 0 else None
 parser = ArgumentParser(
     description="Computes the lift coefficient slope wrt the Mach number at zero angle-of-attack.")
 parser.add_argument("mesh_file", type=str, help="Mesh file.")
@@ -34,6 +37,7 @@ solver = SpatialDiscretization(
     mach_number=args.mach_number,
     angle_of_attack=0.,
     coefficient_length=args.chord,
+    comm=COMM_WORLD,
 )
 
 # Compute ``solver.odes`` based on ``solver.states`` which is initialized by free-stream
