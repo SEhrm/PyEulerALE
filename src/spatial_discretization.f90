@@ -110,9 +110,7 @@ contains
   !! @return Complex maximum
   pure complex(8) function max_c(x, y)
     complex(8), intent(in) :: x, y
-    ! todo
-    ! add a small tolerance for improved consistency with real finite-differencing
-    if (real(x) > real(y) * (1e-5_8 + 1)) then
+    if (real(x) > real(y)) then
       max_c = x
     else
       max_c = y

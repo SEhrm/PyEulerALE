@@ -808,30 +808,43 @@ class SpatialDiscretization:
 
     @staticmethod
     def finite_differences_steps(
-        direction: np.ndarray, derivative: np.ndarray,
+        direction: np.ndarray, derivative: np.ndarray, atol: float = 1e-8, rtol: float = 1e-5,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Finite-differences steps generator for complex directional derivatives
 
         Args:
             direction: Derivative direction
             derivative: Array to store the derivative.
+            atol: Absolute tolerance for difference between 4th-order and 2nd-order derivatives.
+            rtol: Relative tolerance for difference between 4th-order and 2nd-order derivatives.
 
         Yields:
             Step to add to the linearization point, and array to store the evaluation.
         """
-        step_size = 1e-9
         derivative[:] = 0.
         evaluation = np.zeros_like(derivative)
-        for part, factor in ((np.real, 1.), (np.imag, 1.j)):
-            norm = np.mean(np.abs(part(direction)))
-            if norm <= 100 * np.finfo(direction.dtype).eps:
-                continue
-            for step, weight in (
-                (-2, 1 / 12), (-1, -2 / 3), (1, 2 / 3), (2, -1 / 12),
-            ):
-                yield step * step_size * part(direction) / norm, evaluation
-                derivative += weight * factor * evaluation * norm
-        derivative[:] /= step_size
+        derivative_numerator = np.zeros_like(derivative)
+        estimate_numerator = np.zeros_like(derivative)
+        error = np.inf
+        for step_size in np.logspace(0, -10, 6):
+            derivative_numerator[:] = 0.
+            estimate_numerator[:] = 0.
+            for part, factor in ((np.real, 1.), (np.imag, 1.j)):
+                norm = np.mean(np.abs(part(direction)))
+                if norm <= 100 * np.finfo(direction.dtype).eps:
+                    continue
+                for step, weight_4th, weight_2nd in (
+                    (-2, 1 / 12, 0), (-1, -2 / 3, -1 / 2), (1, 2 / 3, 1 / 2), (2, -1 / 12, 0),
+                ):
+                    yield step * step_size * part(direction) / norm, evaluation
+                    derivative_numerator += weight_2nd * factor * evaluation * norm
+                    estimate_numerator += (weight_2nd - weight_4th) * factor * evaluation * norm
+            if error > (error := min(error, np.linalg.norm(estimate_numerator) / step_size)):
+                derivative[:] = derivative_numerator / step_size
+                if error <= max(atol, rtol * np.linalg.norm(derivative)):
+                    break
+        else:
+            pass  # Possibly warn about finite-differences failure
 
     def compute_odes_wrt_states_inner_product_wrt_mach(
         self,
