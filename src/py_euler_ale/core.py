@@ -11,6 +11,7 @@ from pathlib import Path
 import numpy as np
 from scipy.sparse import bsr_array
 from scipy.sparse import csr_array
+from scipy.sparse import eye_array
 from scipy.sparse.linalg import spsolve
 
 from .euler_ale import spatial_discretization as disc
@@ -581,8 +582,8 @@ class SpatialDiscretization:
         disc.apply_odes_wrt_vertices_rev(self._odes_wrt_velocities, d_odes, d_velocities)
         return d_velocities
 
-    def _assemble_csr(self, shift: float | complex = 0.) -> csr_array:
-        """Assembles the Jacobians of ``odes`` with respect to ``states`` as sparse CSR matrix.
+    def _assemble_bsr(self, shift: float | complex = 0.) -> bsr_array:
+        """Assembles the Jacobians of ``odes`` with respect to ``states`` as sparse BSR matrix.
 
         Args:
             shift: Shift value to subtract from the main diagonal.
@@ -590,16 +591,22 @@ class SpatialDiscretization:
         Returns:
             (Shifted) Jacobian as CSR matrix.
         """
-        indices = np.empty((self.num_radial * 9 - 6) * self.num_angular, dtype=np.intc)
-        data = np.empty((4, 4, len(indices)), dtype=float, order="F")
-        index_pointers = np.empty(self.num_angular * self.num_radial + 1, dtype=np.intc)
-        disc.convert_odes_wrt_states(self._odes_wrt_states, data, indices, index_pointers)
-        jacobi = bsr_array((
-            np.moveaxis(data, -1, 0), indices - 1, index_pointers - 1,
-        ), dtype=type(shift)).tocsr()
+        num_blocks = (self.num_radial * 9 - 6) * self.num_angular
+        row_indices = np.empty(num_blocks, dtype=np.intc)
+        col_indices = np.empty(num_blocks, dtype=np.intc)
+        blocks = np.empty((4, 4, num_blocks), dtype=float, order="F")
+        disc.convert_odes_wrt_states(self._odes_wrt_states, blocks, row_indices, col_indices)
+        # To convert from block 'ij' format to BSR format, first create a CSR array for ``indices``
+        # and ``indptr``; then make a BSR array with the blocks.
+        jacobi = csr_array((np.arange(num_blocks), (row_indices - 1, col_indices - 1)))
+        jacobi = bsr_array(
+            (np.moveaxis(blocks, -1, 0)[jacobi.data], jacobi.indices, jacobi.indptr),
+            blocksize=(4,) * 2, dtype=type(shift),
+        )
         # apply possibly complex shift
         if shift != 0.:
-            jacobi.setdiag(jacobi.diagonal() - shift)
+            n, _ = jacobi.shape
+            jacobi -= shift * eye_array(n)
         return jacobi
 
     def solve_odes_wrt_states_fwd(
@@ -629,10 +636,10 @@ class SpatialDiscretization:
             d_states = np.empty_like(d_odes, result_dtype)
         else:
             self._check_array(d_states, self._states.shape, result_dtype)
-        jacobi = self._assemble_csr(shift=shift)
+        jacobi = self._assemble_bsr(shift=shift)
         # sparse LU for possibly complex solution
         d_states.ravel(order="K")[:] = spsolve(
-            jacobi, d_odes.ravel(order="K"),
+            jacobi.tocsr(), d_odes.ravel(order="K"),
         )
         return d_states
 
@@ -663,10 +670,10 @@ class SpatialDiscretization:
             d_odes = np.empty_like(d_states, result_dtype)
         else:
             self._check_array(d_odes, self._odes.shape, result_dtype)
-        jacobi = self._assemble_csr(shift=shift.conjugate())
+        jacobi = self._assemble_bsr(shift=shift.conjugate())
         # sparse LU for possibly complex solution
         d_odes.ravel(order="K")[:] = spsolve(
-            jacobi.T, d_states.ravel(order="K"),
+            jacobi.T.tocsr(), d_states.ravel(order="K"),
         )
         return d_odes
 

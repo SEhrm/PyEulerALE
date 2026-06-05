@@ -755,67 +755,61 @@ contains
     end do
   end subroutine compute_odes_wrt_states
 
-  !> @brief Converts the jacobians of ``compute_odes`` with respect to ``states`` into Block
-  !! Sparse Row (BSR) format.
+  !> @brief Converts the jacobians of ``compute_odes`` with respect to ``states`` into sparse block
+  !! coordinate format.
   !!
-  !! In block row ``i`` the, column indices are ``indices(index_pointers(i):index_pointers(i+1)-1)``
-  !! and the corresponding 4x4 blocks are ``data(index_pointers(i):index_pointers(i+1)-1)``.
-  !! See SciPy's ``scipy.sparse.bsr_array`` for a related format.
+  !! For each 4-by-4 block ``k``, its row index is ``row_indeces(k)``, its column index is
+  !! ``col_indices(k)``, and its value is ``blocks(:, :, k)``.
   !!
   !! @param[in] num_radial Number of cells in the radial direction
   !! @param[in] num_angular Number of cells in the angular direction
   !! @param[in] jacs Jacobians
-  !! @param[inout] data BSR format data
-  !! @param[inout] indices BSR format indices
-  !! @param[inout] index_pointers BSR format index pointers
-  subroutine convert_odes_wrt_states(&
-    num_radial, num_angular, jacs, data, indices, index_pointers)
+  !! @param[inout] blocks Blocks
+  !! @param[inout] row_indeces Row indices
+  !! @param[inout] col_indices Column indices
+  pure subroutine convert_odes_wrt_states(&
+    num_radial, num_angular, jacs, blocks, row_indices, col_indices)
     !f2py integer, intent(hide), depend(jacs) :: num_radial = size(jacs, 3)
     !f2py integer, intent(hide), depend(jacs) :: num_angular = size(jacs, 4)
     !f2py integer, parameter :: num_var = 4, num_dim = 2, num_ode_wrt_state = 9
     integer, intent(in) :: num_radial, num_angular
     real(8), intent(in) :: jacs(num_var, num_var, num_radial, num_angular, num_ode_wrt_state)
-    real(8), intent(inout) :: data(num_var, num_var, (num_radial * 9 - 6) * num_angular)
-    integer(4), intent(inout) :: indices((num_radial * 9 - 6) * num_angular)
-    integer(4), intent(inout) :: index_pointers(num_radial * num_angular + 1)
-    integer :: n_row, m_row, n_col, m_col, row, col, ptr
-    index_pointers(1) = 1
-    ptr = 1
-    row = 0
-    do n_row = 1, num_angular
-      do m_row = 1, num_radial
-        row = row + 1
-        col = 0
-        do n_col = 1, num_angular
-          do m_col = 1, num_radial
-            col = col + 1
-            if (m_col == m_row .and. modulo(n_col - n_row + 1, num_angular) == 0) then
-              data(:, :, ptr) = jacs(:, :, m_row, n_row, 2)
-            else if (m_col == m_row .and. modulo(n_col - n_row + 2, num_angular) == 0) then
-              data(:, :, ptr) = jacs(:, :, m_row, n_row, 3)
-            else if (m_col == m_row - 1 .and. n_col == n_row) then
-              data(:, :, ptr) = jacs(:, :, m_row, n_row, 6)
-            else if (m_col == m_row - 2 .and. n_col == n_row) then
-              data(:, :, ptr) = jacs(:, :, m_row, n_row, 7)
-            else if (m_col == m_row .and. n_col == n_row) then
-              data(:, :, ptr) = jacs(:, :, m_row, n_row, 1)
-            else if (m_col == m_row + 1 .and. n_col == n_row) then
-              data(:, :, ptr) = jacs(:, :, m_row, n_row, 8)
-            else if (m_col == m_row + 2 .and. n_col == n_row) then
-              data(:, :, ptr) = jacs(:, :, m_row, n_row, 9)
-            else if (m_col == m_row .and. modulo(n_col - n_row - 1, num_angular) == 0) then
-              data(:, :, ptr) = jacs(:, :, m_row, n_row, 4)
-            else if (m_col == m_row .and. modulo(n_col - n_row - 2, num_angular) == 0) then
-              data(:, :, ptr) = jacs(:, :, m_row, n_row, 5)
-            else
-              cycle
-            end if
-            indices(ptr) = col
-            ptr = ptr + 1
-          end do
-        end do
-        index_pointers(row + 1) = ptr
-      end do
+    real(8), intent(inout) :: blocks(num_var, num_var, (num_radial * 9 - 6) * num_angular)
+    integer(4), intent(inout) :: row_indices((num_radial * 9 - 6) * num_angular)
+    integer(4), intent(inout) :: col_indices((num_radial * 9 - 6) * num_angular)
+    integer :: n, m, d, k
+    k = 1
+    do concurrent (n = 1:num_angular, m = 1:num_radial, d = 1:num_ode_wrt_state)
+      associate(&
+        i => (n - 1) * num_radial + m, &
+        jac => jacs(:, :, m, n, d), &
+        row => row_indices(k), &
+        col => col_indices(k), &
+        block => blocks(:, :, k) &
+        )
+        if (d == 1) then
+          block = jac; row = i; col = i
+        else if (d == 2) then
+          block = jac; row = i; col = modulo(i - 1 - 1 * num_radial, num_radial * num_angular) + 1
+        else if (d == 3) then
+          block = jac; row = i; col = modulo(i - 1 - 2 * num_radial, num_radial * num_angular) + 1
+        else if (d == 4) then
+          block = jac; row = i; col = modulo(i - 1 + 1 * num_radial, num_radial * num_angular) + 1
+        else if (d == 5) then
+          block = jac; row = i; col = modulo(i - 1 + 2 * num_radial, num_radial * num_angular) + 1
+        else if (d == 6 .and. m > 1) then
+          block = jac; row = i; col = i - 1
+        else if (d == 7 .and. m > 2) then
+          block = jac; row = i; col = i - 2
+        else if (d == 8 .and. m < num_radial) then
+          block = jac; row = i; col = i + 1
+        else if (d == 9 .and. m < num_radial - 1) then
+          block = jac; row = i; col = i + 2
+        else
+          cycle
+        end if
+        k = k + 1
+      end associate
     end do
   end subroutine convert_odes_wrt_states
 

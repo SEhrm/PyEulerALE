@@ -10,6 +10,7 @@ ignore = [
     "missing-default-case",
     "mixed-scalar-array-declaration",
     "invalid-character", # BOM is treated invalid
+    "multiple-statements-per-line",
 ]
 line-length = 101  # throws error if length > 100
 preview = true
