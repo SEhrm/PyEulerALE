@@ -5,14 +5,16 @@ Mach number:              0.45
 Pseudo-transient continuation:
     it        residual    rel residual
      0         3.5e+01         1.0e+00
-     1         1.5e+01         4.3e-01
-     2         9.5e+00         2.7e-01
-     3         4.5e+00         1.3e-01
-     4         5.1e-01         1.4e-02
-     5         5.4e-02         1.5e-03
-     6         1.7e-03         4.7e-05
-     7         3.5e-06         9.9e-08
-     8         2.9e-10         8.2e-12
+     1         3.0e+01         8.5e-01
+     2         1.5e+01         4.3e-01
+     3         6.5e+00         1.8e-01
+     4         5.0e+00         1.4e-01
+     5         1.2e+00         3.3e-02
+     6         2.6e-01         7.4e-03
+     7         4.3e-02         1.2e-03
+     8         4.0e-03         1.1e-04
+     9         4.3e-05         1.2e-06
+    10         3.4e-08         9.5e-10
 
 Lift coefficient derivatives:
 wrt pitch angle:                     7.93 (1/rad)

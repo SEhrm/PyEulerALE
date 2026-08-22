@@ -72,7 +72,7 @@ for nt in range(args.iter):
         break
 
     # Get the global pseudo time-step size by switched evolution relaxation (SER)
-    time_step_size = 1.e-1 * rel_norm**-1.
+    time_step_size = solver.compute_time_step(cfl=1.e0 * rel_norm**-1.)
 
     # Solve linearized system for the update based on the time-step size and the current residual
     update = solver.solve_odes_wrt_states_fwd(

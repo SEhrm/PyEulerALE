@@ -50,7 +50,7 @@ def export_pressure_coefficients(
         pressure_coef: Steady-state pressure coefficient.
         pressure_coef_wrt_aoa: Response from pitch angle to pressure coefficient.
     """
-    if COMM_WORLD != 0:
+    if COMM_WORLD.rank != 0:
         return
     with gzip.open(file_name, mode="w") as file:
         for m, n in np.ndindex(pressure_coef.shape):
@@ -118,7 +118,7 @@ for nt in range(args.iter):
         break
 
     # Get the global pseudo time-step size by switched evolution relaxation (SER)
-    time_step_size = 1.e-1 * rel_norm**-1.
+    time_step_size = solver.compute_time_step(cfl=1.e0 * rel_norm**-1.)
 
     # Solve linearized system for the update based on the time-step size and the current residual
     update = solver.solve_odes_wrt_states_fwd(
@@ -174,7 +174,7 @@ for reduced_frequency in np.logspace(-2, 0, 11):
     )
 
     # Print coefficients
-    print(f"{reduced_frequency:>15.3e} {lift_coef_wrt_aoa:>+25.3e} {moment_coef_wrt_aoa:>+25.3e}")
+    print(f"{reduced_frequency:>15.3e} {lift_coef_wrt_aoa:>+25.2e} {moment_coef_wrt_aoa:>+25.2e}")
 
 # Export steady-state pressure coefficients and transfer from pitch angle to pressure coefficients
 # at the last reduced frequency

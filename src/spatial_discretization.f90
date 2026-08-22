@@ -66,6 +66,7 @@ module spatial_discretization
   real(8), public :: jst_c4 = 2._8      !>@brief JST artificial dissipation constant `c₄`
 
   public set_free_stream_state
+  public compute_time_step
   public compute_odes
   public compute_odes_wrt_mach
   public apply_odes_wrt_mach_fwd
@@ -486,6 +487,41 @@ contains
       states(:, m, n) = make_free_stream_state(mach)
     end do
   end subroutine set_free_stream_state
+
+  !> @brief Computes the global time step to match a maximum CFL number
+  !!
+  !! @param[in] num_radial Number of cells in the radial direction
+  !! @param[in] num_angular Number of cells in the angular direction
+  !! @param[in] vertices Grid vertex coordinate
+  !! @param[in] states States
+  !! @param[in] cfl CFL number
+  !! @return Time step
+  pure function compute_time_step(num_radial, num_angular, vertices, states, cfl) &
+    result (min_time_step)
+    !f2py integer, intent(hide), depend(states) :: num_radial = size(states, 2)
+    !f2py integer, intent(hide), depend(states) :: num_angular = size(states, 3)
+    !f2py integer, parameter :: num_var = 4, num_dim = 2
+    integer, intent(in) :: num_radial, num_angular
+    complex(8), intent(in) :: vertices(num_dim, num_radial + 1, num_angular + 1)
+    complex(8), intent(in) :: states(num_var, num_radial, num_angular)
+    real(8), intent(in) :: cfl
+    real(8) :: time_steps(num_radial, num_angular), min_time_step
+    integer :: m, n
+    do concurrent (n = 1:num_angular, m = 1:num_radial)
+      associate (&
+        vertex_bi => vertices(:, m, n), &
+        vertex_fi => vertices(:, m, n + 1), &
+        vertex_fo => vertices(:, m + 1, n + 1), &
+        vertex_bo => vertices(:, m + 1, n), &
+        state => states(:, m, n), &
+        time_step => time_steps(m, n) &
+        )
+        time_step = cfl * sqrt(real(make_area(vertex_bi, vertex_fi, vertex_fo, vertex_bo))) / &
+          real(sqrt(sum(state(2:3)**2)) / state(1))
+      end associate
+    end do
+    min_time_step = minval(time_steps)
+  end function compute_time_step
 
   !> @brief Computes states' rate-of-change
   !!
@@ -1146,7 +1182,8 @@ contains
   !!
   !! The section forces on the airfoil are `𝓕 = 𝓕(𝓤,𝓧)`, where `𝓤` are the states, and `𝓧` are the
   !! grid vertex coordinates. To get the classical force coefficients, the forces need to be summed
-  !! and be divided by `Maₒₒ²⋅γ⋅c/2`, where `c` it the chord expressed in grid units.
+  !! and be divided by `Maₒₒ²⋅γ⋅c/2`, where `c` it the chord expressed in grid units. Free-stream
+  !! ambient pressure is removed.
   !!
   !! @param[in] num_radial Number of cells in the radial direction
   !! @param[in] num_angular Number of cells in the angular direction
@@ -1168,7 +1205,7 @@ contains
         vertex_bi => vertices(:, 1, n), &
         vertex_fi => vertices(:, 1, n + 1)&
         )
-        forces(:, n) = get_pressure(state) * make_normal(vertex_bi, vertex_fi)
+        forces(:, n) = (get_pressure(state) - 1) * make_normal(vertex_bi, vertex_fi)
       end associate
     end do
   end subroutine compute_forces
@@ -1204,8 +1241,8 @@ contains
         do concurrent (i = 1:num_var)
           d_state = 0
           d_state(i) = i_step
-          jac(:, i) = aimag(get_pressure(state + d_state) * make_normal(vertex_bi, vertex_fi)) &
-            / step
+          jac(:, i) = &
+            aimag((get_pressure(state + d_state) - 1) * make_normal(vertex_bi, vertex_fi)) / step
         end do
       end associate
     end do
@@ -1245,9 +1282,9 @@ contains
           d_vertex = 0
           d_vertex(i) = i_step
           jac_bi(:, i) = &
-            aimag(get_pressure(state) * make_normal(vertex_bi + d_vertex, vertex_fi)) / step
+            aimag((get_pressure(state) - 1) * make_normal(vertex_bi + d_vertex, vertex_fi)) / step
           jac_fi(:, i) = &
-            aimag(get_pressure(state) * make_normal(vertex_bi, vertex_fi + d_vertex)) / step
+            aimag((get_pressure(state) - 1) * make_normal(vertex_bi, vertex_fi + d_vertex)) / step
         end do
       end associate
     end do

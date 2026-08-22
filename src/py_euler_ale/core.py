@@ -294,6 +294,17 @@ class SpatialDiscretization:
         self._configure_disc()
         disc.set_free_stream_state(self.mach_number, self._states)
 
+    def compute_time_step(self, cfl: float) -> float:
+        """Computes the global time step to match a maximum CFL number
+
+        Args:
+            cfl: CFL number to match.
+
+        Returns:
+            Time step
+        """
+        return disc.compute_time_step(self._vertices, self._states, cfl)
+
     def compute_odes(self) -> None:
         """Computes the states' rate of change (ODE)
 
