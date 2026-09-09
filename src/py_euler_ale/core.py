@@ -10,7 +10,7 @@ from pathlib import Path
 
 import numpy as np
 from mpi4py import MPI
-from mumps import spsolve
+from scipy.sparse.linalg import spsolve
 from scipy.sparse import bsr_array
 from scipy.sparse import csr_array
 from scipy.sparse import eye_array
@@ -660,7 +660,7 @@ class SpatialDiscretization:
         jacobi = self._assemble_bsr(shift=shift).astype(dtype=result_dtype, copy=False)
         # sparse LU for possibly complex solution
         d_states.ravel(order="K")[:] = spsolve(
-            jacobi, d_odes.ravel(order="K"), comm=self._comm,
+            jacobi, d_odes.ravel(order="K"),
         )
         self._comm.Bcast(d_states, root=0)
         return d_states
@@ -695,7 +695,7 @@ class SpatialDiscretization:
         jacobi = self._assemble_bsr(shift=shift.conjugate()).astype(dtype=result_dtype, copy=False)
         # sparse LU for possibly complex solution
         d_odes.ravel(order="K")[:] = spsolve(
-            jacobi.T, d_states.ravel(order="K"), comm=self._comm,
+            jacobi.T, d_states.ravel(order="K"),
         )
         self._comm.Bcast(d_odes, root=0)
         return d_odes

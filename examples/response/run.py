@@ -140,17 +140,19 @@ for reduced_frequency in np.logspace(-2, 0, 11):
     # Non-dimensional complex laplace from reduced frequency
     laplace = 1j * reduced_frequency * free_stream_speed / (args.chord / 2)
 
+    d_odes = (
+        solver.apply_odes_wrt_vertices_fwd(
+            d_vertices=vertices_wrt_aoa,
+        ) +
+        solver.apply_odes_wrt_velocities_fwd(
+            d_velocities=laplace * vertices_wrt_aoa,
+        )
+    )
+    print(np.linalg.norm(d_odes))
+
     # Compute transfer from pitch angle to states
     states_wrt_aoa = -solver.solve_odes_wrt_states_fwd(
-        shift=laplace,
-        d_odes=(
-            solver.apply_odes_wrt_vertices_fwd(
-                d_vertices=vertices_wrt_aoa,
-            ) +
-            solver.apply_odes_wrt_velocities_fwd(
-                d_velocities=laplace * vertices_wrt_aoa,
-            )
-        ),
+        shift=laplace, d_odes=d_odes,
     )
 
     # Compute transfer from pitch angle to non-dimensional force
