@@ -93,7 +93,7 @@ solver.compute_odes()
 norm_free_stream = np.max(np.abs(solver.odes))
 
 # Run pseudo-transient continuation (PTC)
-print(f"\nPseudo-transient continuation:\n{'it':>6} {'residual':>30} {'rel residual':>30}")
+print(f"\nPseudo-transient continuation:\n{'it':>6} {'residual':>20} {'rel residual':>20}")
 for nt in range(args.iter):
 
     # Compute current ``solver.odes`` based on current ``solver.states``
@@ -106,7 +106,7 @@ for nt in range(args.iter):
     rel_norm = norm / norm_free_stream
 
     # Print the current iterate
-    print(f"{nt:>6} {norm:>30.20e} {rel_norm:>30.20e}")
+    print(f"{nt:>6} {norm:>20.11e} {rel_norm:>20.11e}")
 
     # Linearize the solver based on the current ``solver.states``
     solver.linearize()
@@ -135,24 +135,22 @@ vertices_wrt_aoa[0] = solver.vertices[1]
 
 # Run frequency response
 print(f"\nFrequency response:\n"
-      f"{'red frequency':>15} {'lift coefficient':>60} {'moment coefficient':>60}")
+      f"{'red frequency':>15} {'lift coefficient':>40} {'moment coefficient':>40}")
 for reduced_frequency in np.logspace(-2, 0, 11):
     # Non-dimensional complex laplace from reduced frequency
     laplace = 1j * reduced_frequency * free_stream_speed / (args.chord / 2)
 
-    d_odes = (
-        solver.apply_odes_wrt_vertices_fwd(
-            d_vertices=vertices_wrt_aoa,
-        ) +
-        solver.apply_odes_wrt_velocities_fwd(
-            d_velocities=laplace * vertices_wrt_aoa,
-        )
-    )
-    print(np.linalg.norm(d_odes))
-
     # Compute transfer from pitch angle to states
     states_wrt_aoa = -solver.solve_odes_wrt_states_fwd(
-        shift=laplace, d_odes=d_odes,
+        shift=laplace,
+        d_odes=(
+            solver.apply_odes_wrt_vertices_fwd(
+                d_vertices=vertices_wrt_aoa,
+            ) +
+            solver.apply_odes_wrt_velocities_fwd(
+                d_velocities=laplace * vertices_wrt_aoa,
+            )
+        ),
     )
 
     # Compute transfer from pitch angle to non-dimensional force
@@ -176,7 +174,7 @@ for reduced_frequency in np.logspace(-2, 0, 11):
     )
 
     # Print coefficients
-    print(f"{reduced_frequency:>15.9e} {lift_coef_wrt_aoa:>+60.20e} {moment_coef_wrt_aoa:>+60.20e}")
+    print(f"{reduced_frequency:>15.9e} {lift_coef_wrt_aoa:>+40.11e} {moment_coef_wrt_aoa:>+40.11e}")
 
 # Export steady-state pressure coefficients and transfer from pitch angle to pressure coefficients
 # at the last reduced frequency

@@ -9,36 +9,58 @@ jobs:
   build:
 
     runs-on: ubuntu-22.04
+    container:
+      image: python:3.12-slim-bookworm
+
+    env:
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      MKL_CBWR: COMPATIBLE   # MKL conditional numerical reproducibility
+      # OpenBLAS: pin the kernel family
+      OPENBLAS_CORETYPE: Haswell
+      # NumPy: disable anything beyond a common baseline
+      NPY_DISABLE_CPU_FEATURES: "AVX512F AVX512CD AVX512_SKX AVX512_KNL AVX512_KNM AVX512_CLX AVX512_CNL AVX512_ICL"
     defaults:
       run:
         shell: bash
     strategy:
       fail-fast: false
       matrix:
-        python-version: [ "3.11" ]
-        numpy-version: [ "1.26.4" ]
         runner: [ "A", "B", "C", "D", "E", "F", "G" ]
 
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v3
-        with:
-          python-version: ${{ matrix.python-version }}
       - name: Install
         run: |
-          sudo apt install -yqqq libmumps-dev gnuplot=5.4.2+dfsg2-2
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            gfortran \
+            pkg-config \
+            libscalapack-openmpi-dev \
+            libmetis-dev \
+            libmumps-dev \
+            libopenblas-dev \
+            liblapack-dev \
+            libfftw3-dev \
+            libhdf5-dev \
+            libnetcdf-dev \
+            libopenmpi-dev \
+            gnuplot \
+            openmpi-bin
           python -m pip install --upgrade pip
-          python -m pip install ruff==0.15.0 fortitude-lint==0.8.0
-          if [ "${{ matrix.numpy-version }}" = "latest" ]; then
-            pip install .
-          else
-            echo "Installing numpy==${{ matrix.numpy-version }}"
-            pip install numpy==${{ matrix.numpy-version }} .
-          fi
+          python -m pip install .
+      - name: Environment fingerprint
+        run: |
+          lscpu
+          ldd --version
+          python -c "import numpy; numpy.show_config()"
+          python -c "import numpy; print(numpy.__version__, numpy.core._multiarray_umath.__cpu_features__)"
+          python -c "import scipy; print(scipy.__version__)"
+          pip freeze
       - name: Check 'Response' example
         working-directory: examples/response
         run: |
-          mpirun -n 1 --report-bindings --bind-to hwthread \
-            python -u run.py ../grids/naca0004_129x129.plot3d 10. 0.5 0 | tee Ma0p50.out
-          git diff --exit-code Ma0p50.out
+          mpirun --allow-run-as-root -n 1 --report-bindings --bind-to hwthread \
+            python -u run.py ../grids/naca0004_129x129.plot3d 10. 0.5 0 | tee run.out
+          diff run.out Ma0p50.out
