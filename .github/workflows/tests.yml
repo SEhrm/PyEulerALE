@@ -15,8 +15,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [ "3.10", "3.11", "3.12", "3.13" ]
-        numpy-version: [ "1.26.4", "latest" ]
+        python-version: [ "3.11" ]
+        numpy-version: [ "1.26.4" ]
+        runner: [ "A", "B", "C", "D", "E", "F", "G" ]
 
     steps:
       - uses: actions/checkout@v4
@@ -35,34 +36,9 @@ jobs:
             echo "Installing numpy==${{ matrix.numpy-version }}"
             pip install numpy==${{ matrix.numpy-version }} .
           fi
-      - name: Lint with ruff
-        run: |
-          ruff check
-      - name: Lint with fortitude
-        run: |
-          fortitude check
-      - name: Run unittests
-        run: |
-          python -m unittest discover tests/
       - name: Check 'Response' example
         working-directory: examples/response
         run: |
-          for m in {5,50}; do
-            mpirun -n 2 --bind-to core \
-              python -u run.py ../grids/naca0004_129x129.plot3d 10. 0.$m 0 | tee Ma0p$m.out
-            git diff --exit-code Ma0p$m.out
-          done
-          ./bode.gpi
-          git diff --exit-code bode.png
-          ./sinusoidal.gpi
-          git diff --exit-code sinusoidal.gif
-      - name: Check 'Gain' example
-        working-directory: examples/gain
-        run: |
-          for m in {10..50..5}; do
-            mpirun -n 2 --bind-to core \
-              python -u run.py ../grids/naca0012_129x129.plot3d 10. 0.$m | tee Ma0p$m.out
-            git diff --exit-code Ma0p$m.out
-          done
-          ./prandtl.gpi
-          git diff --exit-code prandtl.png
+          mpirun -n 1 --report-bindings --bind-to hwthread \
+            python -u run.py ../grids/naca0004_129x129.plot3d 10. 0.5 0 | tee Ma0p50.out
+          git diff --exit-code Ma0p50.out

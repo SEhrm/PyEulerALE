@@ -24,7 +24,7 @@ parser.add_argument("mach_number", type=float, help="Free-stream Mach number.")
 parser.add_argument("axis_location", type=float,
                     help="Axis of rotation location (in grid units).")
 parser.add_argument(
-    "--rtol", type=float, default=1e-9,
+    "--rtol", type=float, default=1e-13,
     help="Residual tolerance to reach relative to free-stream residual. (default: %(default)s)")
 parser.add_argument(
     "--iter", type=int, default=100,
@@ -93,7 +93,7 @@ solver.compute_odes()
 norm_free_stream = np.max(np.abs(solver.odes))
 
 # Run pseudo-transient continuation (PTC)
-print(f"\nPseudo-transient continuation:\n{'it':>6} {'residual':>15} {'rel residual':>15}")
+print(f"\nPseudo-transient continuation:\n{'it':>6} {'residual':>30} {'rel residual':>30}")
 for nt in range(args.iter):
 
     # Compute current ``solver.odes`` based on current ``solver.states``
@@ -106,7 +106,7 @@ for nt in range(args.iter):
     rel_norm = norm / norm_free_stream
 
     # Print the current iterate
-    print(f"{nt:>6} {norm:>15.1e} {rel_norm:>15.1e}")
+    print(f"{nt:>6} {norm:>30.20e} {rel_norm:>30.20e}")
 
     # Linearize the solver based on the current ``solver.states``
     solver.linearize()
@@ -135,7 +135,7 @@ vertices_wrt_aoa[0] = solver.vertices[1]
 
 # Run frequency response
 print(f"\nFrequency response:\n"
-      f"{'red frequency':>15} {'lift coefficient':>25} {'moment coefficient':>25}")
+      f"{'red frequency':>15} {'lift coefficient':>60} {'moment coefficient':>60}")
 for reduced_frequency in np.logspace(-2, 0, 11):
     # Non-dimensional complex laplace from reduced frequency
     laplace = 1j * reduced_frequency * free_stream_speed / (args.chord / 2)
@@ -174,7 +174,7 @@ for reduced_frequency in np.logspace(-2, 0, 11):
     )
 
     # Print coefficients
-    print(f"{reduced_frequency:>15.3e} {lift_coef_wrt_aoa:>+25.2e} {moment_coef_wrt_aoa:>+25.2e}")
+    print(f"{reduced_frequency:>15.9e} {lift_coef_wrt_aoa:>+60.20e} {moment_coef_wrt_aoa:>+60.20e}")
 
 # Export steady-state pressure coefficients and transfer from pitch angle to pressure coefficients
 # at the last reduced frequency
