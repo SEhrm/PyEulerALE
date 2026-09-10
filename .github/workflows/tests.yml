@@ -16,11 +16,6 @@ jobs:
       OMP_NUM_THREADS: "1"
       OPENBLAS_NUM_THREADS: "1"
       MKL_NUM_THREADS: "1"
-      MKL_CBWR: COMPATIBLE   # MKL conditional numerical reproducibility
-      # OpenBLAS: pin the kernel family
-      OPENBLAS_CORETYPE: Haswell
-      # NumPy: disable anything beyond a common baseline
-      NPY_DISABLE_CPU_FEATURES: "AVX512F AVX512CD AVX512_SKX AVX512_KNL AVX512_KNM AVX512_CLX AVX512_CNL AVX512_ICL"
     defaults:
       run:
         shell: bash
