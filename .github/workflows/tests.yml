@@ -10,7 +10,7 @@ jobs:
 
     runs-on: ubuntu-22.04
     container:
-      image: python:3.12-slim-bookworm
+      image: python:3.12-bookworm
 
     env:
       OMP_NUM_THREADS: "1"
@@ -35,29 +35,12 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends \
+            openmpi-bin \
             gfortran \
-            pkg-config \
-            libscalapack-openmpi-dev \
-            libmetis-dev \
             libmumps-dev \
-            libopenblas-dev \
-            liblapack-dev \
-            libfftw3-dev \
-            libhdf5-dev \
-            libnetcdf-dev \
-            libopenmpi-dev \
-            gnuplot \
-            openmpi-bin
+            gnuplot
           python -m pip install --upgrade pip
           python -m pip install .
-      - name: Environment fingerprint
-        run: |
-          lscpu
-          ldd --version
-          python -c "import numpy; numpy.show_config()"
-          python -c "import numpy; print(numpy.__version__, numpy.core._multiarray_umath.__cpu_features__)"
-          python -c "import scipy; print(scipy.__version__)"
-          pip freeze
       - name: Check 'Response' example
         working-directory: examples/response
         run: |
