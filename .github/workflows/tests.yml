@@ -38,6 +38,6 @@ jobs:
       - name: Check 'Response' example
         working-directory: examples/response
         run: |
-          mpirun --allow-run-as-root -n 1 --report-bindings --bind-to hwthread \
+          mpirun --allow-run-as-root -n 1 --report-bindings \
             python -u run.py ../grids/naca0004_129x129.plot3d 10. 0.5 0 | tee run.out
           diff run.out Ma0p50.out
