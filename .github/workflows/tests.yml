@@ -11,9 +11,6 @@ jobs:
     runs-on: ubuntu-22.04
     container:
       image: python:3.12-bookworm
-
-    env:
-      OMP_NUM_THREADS: "1"
     defaults:
       run:
         shell: bash
